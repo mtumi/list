@@ -438,3 +438,28 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 .area h2 .n,.col h2 .n{color:var(--faint)}
 .go{color:var(--faint)}
 .st{border-color:var(--line)}
+
+/* ---------- Field notebook look (Michael, 2026-10-19: "can I have the option to toggle between workstream and field
+   notebook?"). Light paper on cool grey, navy ink, a red pen mark on what is in progress, ruled cards. Light only:
+   these come last and match the dark blocks' specificity, so they win in either system theme. ---------- */
+:root[data-look="notebook"]{
+  color-scheme:light;
+  --bg:#E8ECEF; --surface:#EFF2F4; --raised:#F9FAF8; --sunken:#E3E8EC; --ink:#1D2433; --ink-2:#2E3747; --muted:#667085; --faint:#98A1AE;
+  --line:#CDD3DA; --line-soft:#DCE2E8; --accent:#2B4C7E; --accent-soft:#DCE5F1; --you:#B4532A; --you-soft:#F5E3DA;
+  --work:#2B4C7E; --work-soft:#DCE5F1; --run:#B4532A; --run-soft:#F5E3DA; --done:#3E7C59; --warn:#A33B2A; --warn-soft:#F6DFDA;
+  --shadow:0 1px 0 rgba(29,36,51,.10),0 2px 6px rgba(29,36,51,.06);
+  --a1:#2B4C7E; --a2:#7A4E9A; --a3:#2F7A72; --a4:#4E7A2E; --a5:#667085; --a6:#B4532A; --a0:#98A1AE;
+  --display:Literata, Georgia, serif;
+  --body:Literata, Georgia, serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+:root[data-look="notebook"] body{font-size:14.5px}
+:root[data-look="notebook"] .col{background:transparent;border:0;box-shadow:none;padding:4px 2px 8px}
+:root[data-look="notebook"] .col h2,:root[data-look="notebook"] .col h3{color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
+:root[data-look="notebook"] .kcard{background-color:var(--raised);border:0;border-left:0;border-radius:2px;box-shadow:var(--shadow);
+  background-image:repeating-linear-gradient(transparent 0, transparent 21px, #DCE4EC 21px, #DCE4EC 22px);background-position:0 7px}
+:root[data-look="notebook"] .kcard[data-s="doing"]{box-shadow:inset 3px 0 0 var(--you),var(--shadow)}
+:root[data-look="notebook"] .kcard[data-s="done"]{opacity:.6}
+:root[data-look="notebook"] .item{border-bottom:1px dashed var(--line-soft);border-radius:0}
+:root[data-look="notebook"] .sidepanel{background:var(--raised)}
+:root[data-look="notebook"] .sphead{background:var(--raised)}
