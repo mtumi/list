@@ -231,6 +231,7 @@ function itemRow(t, depth = 0) {
   st.onclick = () => act('todo_status', {item: String(t.id), status: next}, 'Changing status', () => { t.status = next; });
   const title = el('span', 'title' + (t.notes ? ' has-notes' : ''), clean(t.title)); title.title = clean(t.title); title.tabIndex = 0;
   title.onclick = () => openDetail(t); title.onkeydown = e => { if (e.key === 'Enter') openDetail(t); };
+  attachMenu(li, t);
   li.append(st, title);
   if (t.waiting) li.classList.add('waiting');
   li.append(...markers(t));
@@ -700,6 +701,64 @@ function wsItem(t, it, pend, stayWs) {
   }
   return row;
 }
+
+// Right-click (or control-click) menu on cards and rows; long-press opens it on touch screens.
+function closeMenu() { const m = document.getElementById('ctxmenu'); if (m) m.remove(); document.removeEventListener('pointerdown', menuOutside, true); }
+function menuOutside(e) { if (!e.target.closest('#ctxmenu')) closeMenu(); }
+function attachMenu(li, t) {
+  li.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(t, e.clientX, e.clientY); });
+  let timer = null, sx = 0, sy = 0;
+  li.addEventListener('touchstart', e => { if (e.target.closest('.grip,button')) return; const p = e.touches[0]; sx = p.clientX; sy = p.clientY;
+    timer = setTimeout(() => { timer = null; suppressClick = true; setTimeout(() => { suppressClick = false; }, 400); openMenu(t, sx, sy); }, 550); }, {passive: true});
+  const cancel = e => { if (!timer) return; if (e.type === 'touchmove') { const p = e.touches[0]; if (Math.hypot(p.clientX - sx, p.clientY - sy) < 8) return; } clearTimeout(timer); timer = null; };
+  li.addEventListener('touchmove', cancel, {passive: true}); li.addEventListener('touchend', cancel); li.addEventListener('touchcancel', cancel);
+}
+function openMenu(t, x, y) {
+  closeMenu();
+  const m = el('div', 'ctxmenu'); m.id = 'ctxmenu'; m.setAttribute('role', 'menu');
+  const head = el('div', 'cmhead'); if (t.code) head.append(codeLabel(t), ' '); head.append(clean(t.title).slice(0, 60)); m.append(head);
+  const item = (label, run, cls) => { const b = el('button', 'cmitem' + (cls ? ' ' + cls : ''), label); b.type = 'button'; b.setAttribute('role', 'menuitem');
+    b.onclick = async () => { closeMenu(); await run(); }; m.append(b); return b; };
+  const sep = () => m.append(el('div', 'cmsep'));
+  const id = String(t.id);
+  item('Open details', () => openDetail(t));
+  sep();
+  if (t.running_since) item('Pause clock', () => act('todo_pause', {item: id}, 'Pausing'));
+  else if (t.status !== 'done') item('Start clock', () => act('todo_start', {item: id}, 'Starting'));
+  if (t.status !== 'done') item('Mark done', () => act('todo_done', {item: id}, 'Marking done', () => { t.status = 'done'; }));
+  if (t.status !== 'todo') item('Move to To do', () => act('todo_status', {item: id, status: 'todo'}, 'Moving', () => { t.status = 'todo'; }));
+  if (t.status !== 'doing') item('Move to In progress', () => act('todo_status', {item: id, status: 'doing'}, 'Moving', () => { t.status = 'doing'; }));
+  sep();
+  const plus = n => { const d0 = new Date(); d0.setDate(d0.getDate() + n); return d0.toLocaleDateString('en-CA'); };
+  item('Hide until tomorrow', () => act('todo_hide_until', {item: id, until: plus(1)}, 'Hiding'));
+  item('Hide for 2 days', () => act('todo_hide_until', {item: id, until: plus(2)}, 'Hiding'));
+  item('Hide for a week', () => act('todo_hide_until', {item: id, until: plus(7)}, 'Hiding'));
+  sep();
+  const areaBtn = item('Move to area…', () => {}); areaBtn.onclick = e => { e.stopPropagation(); showSub(areaBtn, (data.areas || []).filter(a => a.area !== t.area).map(a => [a.area, () => act('todo_move', {item: id, area: a.area, to_end: true}, 'Moving')])); };
+  const nestBtn = item('Make a sub-item of…', () => {}); nestBtn.onclick = e => { e.stopPropagation();
+    const pool = []; for (const a of (data.areas || [])) for (const x of a.items) if (x.id !== t.id && x.status !== 'done' && !isUnder(x.id, t.id)) pool.push(x);
+    pool.sort((p, q) => (p.area === t.area ? 0 : 1) - (q.area === t.area ? 0 : 1));
+    showSub(nestBtn, pool.slice(0, 14).map(x => [(x.code ? x.code + '  ' : '') + clean(x.title).slice(0, 44), () => act('todo_nest', {item: id, under_item: String(x.id)}, 'Nesting')])); };
+  if (t.parent_id) item('Take out of its parent', () => act('todo_unnest', {item: id}, 'Un-nesting'));
+  sep();
+  if (t.code) item('Copy code ' + t.code, async () => { try { await navigator.clipboard.writeText(t.code); toast('Copied ' + t.code); } catch (e) { toast(t.code); } });
+  item('Delete', () => act('todo_remove', {item: id}, 'Deleting'), 'danger');
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(y, innerHeight - r.height - 8)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', menuOutside, true), 0);
+}
+function showSub(btn, entries) {
+  const m = document.getElementById('ctxmenu'); if (!m) return;
+  m.querySelectorAll('.cmsub').forEach(x => x.remove());
+  const sub = el('div', 'cmsub');
+  if (!entries.length) sub.append(el('div', 'cmempty', 'Nothing to choose'));
+  for (const [label, run] of entries) { const b = el('button', 'cmitem', label); b.type = 'button'; b.onclick = async () => { closeMenu(); await run(); }; sub.append(b); }
+  btn.after(sub);
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+window.addEventListener('scroll', closeMenu, {passive: true});
 function card(t) {
   shownIds.push(t.id);
   const li = el('li', 'kcard'); li.dataset.id = t.id; li.dataset.s = t.status; li.dataset.area = t.area;
@@ -754,6 +813,7 @@ function card(t) {
     }
   }
   li.onclick = e => { if (suppressClick || e.target.closest('.grip')) return; openDetail(t); };
+  attachMenu(li, t);
   li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(t); } };
   grip.addEventListener('pointerdown', e => { e.stopPropagation(); startCardDrag(e, li, t, false); });
   li.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) startCardDrag(e, li, t, true); });

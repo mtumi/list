@@ -471,3 +471,15 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 :root[data-look="notebook"] .item{border-bottom:1px dashed var(--line-soft);border-radius:0}
 :root[data-look="notebook"] .sidepanel{background:var(--raised)}
 :root[data-look="notebook"] .sphead{background:var(--raised)}
+
+/* Right-click / long-press menu. */
+.ctxmenu{position:fixed;z-index:80;min-width:220px;max-width:min(340px,calc(100vw - 16px));max-height:calc(100vh - 16px);overflow-y:auto;
+  background:var(--raised);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.28);padding:6px;display:flex;flex-direction:column}
+.ctxmenu .cmhead{font-size:.78rem;color:var(--muted);padding:4px 8px 6px;display:flex;gap:6px;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.ctxmenu .cmitem{text-align:left;border:0;background:transparent;color:var(--title-ink,var(--ink));padding:6px 10px;border-radius:6px;font-size:.88rem}
+.ctxmenu .cmitem:hover,.ctxmenu .cmitem:focus-visible{background:var(--sunken)}
+.ctxmenu .cmitem.danger{color:var(--warn)}
+.ctxmenu .cmsep{height:1px;background:var(--line-soft);margin:4px 2px}
+.ctxmenu .cmsub{display:flex;flex-direction:column;margin:2px 0 4px 10px;padding-left:6px;border-left:1px solid var(--line)}
+.ctxmenu .cmsub .cmitem{font-size:.84rem;padding:5px 8px}
+.ctxmenu .cmempty{font-size:.82rem;color:var(--faint);padding:5px 8px}
