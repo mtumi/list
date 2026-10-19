@@ -451,6 +451,13 @@ $('codeform').addEventListener('submit', async e => {
   else signinStatus('Signed in.', 'good');
 });
 $('again').onclick = () => sentTo && sendLink(sentTo);
+$('havecode').onclick = () => {
+  let email = $('email').value.trim().toLowerCase();
+  if (!email) { try { email = localStorage.getItem('list-last-email') || ''; } catch (e) { /* private mode */ } }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { signinStatus('Type your email above first, then press "I have a code".', 'err'); $('email').focus(); return; }
+  sentTo = email; $('sentto').textContent = email; showStep('code'); signinStatus('');
+  setTimeout(() => $('code').focus(), 50);
+};
 $('other').onclick = () => { showStep('email'); signinStatus(''); $('email').focus(); };
 async function signOut() {
   started = false; data = null; stamp = null;
@@ -519,7 +526,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
     return;
   }
   sb = window.supabase.createClient(CFG.supabaseUrl, CFG.publishableKey, {
-    auth: {flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'list-auth'},
+    auth: {flowType: 'implicit', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'list-auth'},
     db: {schema: 'todo_api'},
   });
 

@@ -37,9 +37,10 @@
         <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required>
         <button type="submit" id="sendbtn">Send me a link</button>
       </form>
+      <p class="small"><button type="button" class="link" id="havecode">I have a code</button></p>
     </div>
     <div id="step-code" hidden>
-      <p class="lead">Check your email at <b id="sentto"></b>. Open the link on this device, or type the code from the email here.</p>
+      <p class="lead">Check your email at <b id="sentto"></b>. Open the link from the email, or type the code from it here.</p>
       <form id="codeform" autocomplete="off" novalidate>
         <label for="code">Code from the email</label>
         <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" spellcheck="false">
