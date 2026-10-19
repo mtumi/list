@@ -187,3 +187,11 @@ dialog.detail .dhide input{padding:7px 9px;border:1px solid var(--line);border-r
 dialog.detail .danger{color:var(--warn);align-self:flex-start;margin-top:4px}
 dialog.detail .dbar .danger-btn{background:transparent;color:var(--warn);border:1px solid var(--warn);margin-left:auto}
 dialog.card:not([open]){display:none}
+.notecount{font-size:.8rem;color:var(--warn);border:1px solid var(--warn);border-radius:999px;padding:2px 9px}
+dialog.detail .dclaude{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+dialog.detail .dlabel{font:700 .68rem var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+dialog.detail .dnote{margin:0;font-size:.9rem;display:flex;gap:8px;justify-content:space-between}
+dialog.detail .dnote .dnstat{color:var(--muted);font-size:.8rem;white-space:nowrap}
+dialog.detail .dnote.pending .dnstat{color:var(--warn)}
+dialog.detail textarea{padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);font:inherit;font-size:15px;resize:vertical}
+dialog.detail .dclaude button{align-self:flex-start;padding:7px 12px;border-radius:8px;background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:700}

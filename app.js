@@ -142,6 +142,8 @@ function viewPhrase(area, status, mode) {
 function render() {
   if (!data) return;
   renderControls(); renderRunning(); renderToday();
+  const waiting = (data.notes_for_claude || []).length;
+  $('notecount').hidden = !waiting; $('notecount').textContent = waiting === 1 ? '1 note waiting for Claude' : `${waiting} notes waiting for Claude`;
   const main = $('main'); main.replaceChildren();
   $('viewnote').textContent = view.updated_by && view.updated_by !== 'web' && view.updated_at ? `Showing: ${view.label} (set by ${view.updated_by})` : '';
   if (view.mode === 'time') return renderTime(main);
@@ -330,6 +332,17 @@ function openDetail(t) {
   if (t.running_since) facts.push('Clock running since ' + new Date(t.running_since).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}));
   else if (mins >= 1) facts.push('Today: ' + fmtMin(mins));
   if (facts.length) body.append(el('p', 'dfacts', facts.join(' · ')));
+  const nfc = t.notes_for_claude || [];
+  const box = el('div', 'dclaude'); box.append(el('div', 'dlabel', 'Note for Claude'));
+  for (const n of nfc) {
+    const row = el('p', 'dnote' + (n.status === 'pending' ? ' pending' : ''));
+    row.append(el('span', null, n.note), el('span', 'dnstat', n.status === 'pending' ? 'waiting' : 'handled' + (n.outcome ? ': ' + n.outcome : '')));
+    box.append(row);
+  }
+  const ta = document.createElement('textarea'); ta.id = 'claudenote'; ta.rows = 2; ta.placeholder = 'For example: split this into two, or: done, Stephen cancelled';
+  const send = el('button', 'secondary', 'Save note'); send.type = 'button';
+  send.onclick = async () => { const v = ta.value.trim(); if (!v) return; d.close(); await act('todo_note_add', {item: String(t.id), note: v}, 'Saving the note'); };
+  box.append(ta, send); body.append(box);
   const bar = el('div', 'dbar');
   const btn = (label, cls, run) => { const b = el('button', cls, label); b.type = 'button'; b.onclick = async () => { d.close(); await run(); }; bar.append(b); };
   if (t.running_since) btn('Pause clock', 'secondary', () => act('todo_pause', {item: String(t.id)}, 'Pausing'));
