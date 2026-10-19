@@ -186,7 +186,7 @@ function viewPhrase(area, status, mode) {
 function render() {
   if (!data) return;
   shownIds = [];
-  renderControls(); renderRunning(); renderToday(); renderTally();
+  renderControls(); renderRunning(); renderToday(); renderStrip(); renderTally();
   const waiting = (data.notes_for_claude || []).length;
   $('notecount').hidden = !waiting; $('notecount').textContent = waiting === 1 ? '1 note waiting for Claude' : `${waiting} notes waiting for Claude`;
   const main = $('main'); main.replaceChildren();
@@ -241,6 +241,34 @@ function renameInline(span, t) {
 function earlierMs(itemId, since) { const it = itemById(itemId); if (!it || !since) return 0;
   return Math.max(0, (it.minutes_today || 0) * 60000 - Math.max(0, fetchedAt - Date.parse(since))); }
 const tick = (c) => { c.textContent = fmtClock(Date.now() - Date.parse(c.dataset.since) + (+c.dataset.base || 0)); };
+
+// One compact line at the top: what is running (with pause), focus and background time, and a toggle for the
+// fuller counts and time panels (Michael, 2026-10-19: "too much junk up top").
+let showMore = false; try { showMore = localStorage.getItem('list-more') === '1'; } catch (e) { /* private mode */ }
+function renderStrip() {
+  const box = $('strip1'); box.replaceChildren();
+  $('moredetail').hidden = !showMore;
+  const runs = data.running || [];
+  if (!runs.length) box.append(el('span', 'idle', 'Nothing running.'));
+  for (const r of runs) {
+    const chip = el('span', 'runchip'); chip.append(el('span', 'dot'), el('span', 'what', clean(r.what)));
+    if (r.alongside) chip.append(el('span', 'tag bg', 'bg'));
+    const c = el('span', 'clock'); c.dataset.since = r.started_at; c.dataset.base = r.item ? earlierMs(r.item, r.started_at) : 0; tick(c); chip.append(c);
+    const p = el('button', 'pz', 'Pause'); p.type = 'button'; p.onclick = () => act('todo_pause', r.item ? {item: String(r.item)} : {}, 'Pausing');
+    chip.append(p); box.append(chip);
+  }
+  const tt = data.time_today || {}, extra = (Date.now() - fetchedAt) / 60000, live = runs.filter(r => !r.needs_check);
+  const focus = (tt.focus_minutes || 0) + (live.some(r => !r.alongside) ? extra : 0);
+  const bg = (tt.background_minutes || 0) + (live.some(r => r.alongside) ? extra : 0);
+  const t = el('span', 'stripsum'); t.append('Focus ', el('b', null, fmtMin(focus)));
+  if (bg >= 1) t.append(' · bg ', el('b', null, fmtMin(bg)));
+  box.append(t);
+  const more = el('button', 'out moretoggle', showMore ? 'Less' : 'More'); more.type = 'button';
+  more.onclick = () => { showMore = !showMore; try { localStorage.setItem('list-more', showMore ? '1' : '0'); } catch (e) { /* private mode */ } render(); };
+  box.append(more);
+}
+$('menubtn').onclick = e => { e.stopPropagation(); const m = $('hmenu'); m.hidden = !m.hidden; $('menubtn').setAttribute('aria-expanded', String(!m.hidden)); };
+document.addEventListener('click', e => { if (!e.target.closest('.hmenuwrap')) { $('hmenu').hidden = true; $('menubtn').setAttribute('aria-expanded', 'false'); } });
 function itemRow(t, depth = 0) {
   shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;

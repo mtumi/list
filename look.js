@@ -10,7 +10,7 @@
   function label() {
     var b = document.getElementById('lookbtn'); if (!b) return;
     var dark = document.documentElement.dataset.look !== 'notebook';
-    b.textContent = dark ? 'Dark' : 'Light';
+    b.textContent = dark ? 'Switch to light' : 'Switch to dark';
     b.title = dark ? 'Switch to light' : 'Switch to dark';
   }
   document.addEventListener('DOMContentLoaded', function () {

@@ -21,8 +21,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600;700&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="app.css?v=27">
-<script src="look.js?v=27"></script>
+<link rel="stylesheet" href="app.css?v=29">
+<script src="look.js?v=29"></script>
 </head>
 <body>
 
@@ -67,16 +67,22 @@
       <select id="addarea" aria-label="Area"></select>
       <button type="submit">Add</button>
     </form>
-    <button type="button" class="out" id="lookbtn" title="Switch to light">Dark</button>
-    <button type="button" class="out" id="changepw" title="Change password">Password</button>
-    <button type="button" class="out" id="signout" title="Sign out">Sign out</button>
+    <div class="hmenuwrap"><button type="button" class="out" id="menubtn" aria-haspopup="true" aria-expanded="false" title="Settings">&#8943;</button>
+      <div class="hmenu" id="hmenu" hidden>
+        <button type="button" id="lookbtn" title="Switch to light">Dark</button>
+        <button type="button" id="changepw">Change password</button>
+        <button type="button" id="signout">Sign out</button>
+      </div></div>
   </header>
   <div id="banner" hidden></div>
+  <section class="strip1" id="strip1" aria-label="Running and time today"></section>
+  <div id="moredetail" hidden>
   <section class="tally" id="tally" aria-label="Counts"></section>
   <section class="band">
     <div class="panel"><div class="label">Running now</div><div class="running" id="running"><span class="idle">Nothing is running.</span></div></div>
     <div class="panel"><div class="label">Time today</div><div id="today"><span class="idle">No time logged yet today.</span></div></div>
   </section>
+  </div>
   <nav class="filters" aria-label="What to show">
     <div class="chips" id="chips"></div>
     <div class="seg mode" id="modeseg" aria-label="Layout">
@@ -113,6 +119,6 @@
   <div class="sphead"><div class="spnav"><button type="button" id="itemprev" aria-label="Previous item">&#8593; Previous</button><button type="button" id="itemnext" aria-label="Next item">Next &#8595;</button><span id="itempos"></span><button type="button" id="itemclose" aria-label="Close">Close</button></div><div id="itemmeta"></div></div>
   <div id="itembody" class="spbody"></div>
 </aside>
-<script src="app.js?v=27"></script>
+<script src="app.js?v=29"></script>
 </body>
 </html>
