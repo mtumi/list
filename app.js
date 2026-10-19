@@ -350,7 +350,7 @@ function openDetail(t) {
   if (t.status !== 'done') btn('Mark done', '', () => act('todo_done', {item: String(t.id)}, 'Marking done', () => { t.status = 'done'; }));
   else btn('Reopen', 'secondary', () => act('todo_status', {item: String(t.id), status: 'todo'}, 'Reopening', () => { t.status = 'todo'; }));
   const del = el('button', 'danger-btn', 'Delete'); del.type = 'button';
-  del.onclick = async () => { if (!confirm('Delete "' + clean(t.title) + '"?')) return; d.close(); await act('todo_remove', {item: String(t.id)}, 'Deleting'); };
+  del.onclick = async () => { d.close(); await act('todo_remove', {item: String(t.id)}, 'Deleting'); };
   bar.append(del);
   body.append(bar);
   const hide = el('div', 'dhide');
