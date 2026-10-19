@@ -406,8 +406,8 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 :root[data-theme="dark"]{--title-ink:#D6DBE2}
 .title,.ctitle,.ksub .ksubtitle,.spbody .dsubtitle,.spbody .wsname{color:var(--title-ink);font-weight:400}
 .item[data-s="doing"] .title,.kcard[data-s="doing"] .ctitle{font-weight:400}
-.kcard[data-s="doing"]{box-shadow:inset 0 2px 0 var(--you),var(--shadow)}
-.item[data-s="doing"]{box-shadow:inset 2px 0 0 var(--you)}
+.kcard[data-s="doing"]{box-shadow:var(--shadow)}
+.item[data-s="doing"]{box-shadow:none}
 .cmeta,.carea{color:var(--faint);font-size:.7rem}
 .tag,.cid,.spbody .wscode{background:transparent;border:1px solid var(--line);color:var(--faint);opacity:1}
 .tag.claude{background:transparent;color:var(--work);border-color:var(--line)}
@@ -466,7 +466,7 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 :root[data-look="notebook"] .col h2,:root[data-look="notebook"] .col h3{color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
 :root[data-look="notebook"] .kcard{background-color:var(--raised);border:0;border-left:0;border-radius:2px;box-shadow:var(--shadow);
   background-image:repeating-linear-gradient(transparent 0, transparent 21px, #DCE4EC 21px, #DCE4EC 22px);background-position:0 7px}
-:root[data-look="notebook"] .kcard[data-s="doing"]{box-shadow:inset 3px 0 0 var(--you),var(--shadow)}
+:root[data-look="notebook"] .kcard[data-s="doing"]{box-shadow:var(--shadow)}
 :root[data-look="notebook"] .kcard[data-s="done"]{opacity:.6}
 :root[data-look="notebook"] .item{border-bottom:1px dashed var(--line-soft);border-radius:0}
 :root[data-look="notebook"] .sidepanel{background:var(--raised)}
