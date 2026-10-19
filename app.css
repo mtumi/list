@@ -168,3 +168,6 @@ form.add button{padding:8px 14px;border:0;border-radius:8px;background:var(--acc
 .status.good{color:var(--done)}
 
 @media (max-width:520px){body{padding-left:calc(16px + env(safe-area-inset-left,0px));padding-right:calc(16px + env(safe-area-inset-right,0px))} form.add{flex-basis:100%;order:3} .seg{margin-left:0} .card{padding:22px 18px 18px}}
+dialog.card{margin:auto;border:1px solid var(--line);color:var(--ink)}
+dialog.card::backdrop{background:rgba(0,0,0,.45)}
+dialog.card h2{font:700 1.2rem var(--display);margin:0 0 4px}

@@ -31,25 +31,15 @@
     <img class="mark" src="icons/icon.svg" alt="" width="56" height="56">
     <h1>list.secretprogress.com</h1>
     <div id="step-email">
-      <p class="lead">Sign in with your email and password, or have a link sent to you.</p>
+      <p class="lead">Sign in with your email and password.</p>
       <form id="emailform" autocomplete="on" novalidate>
         <label for="email">Email</label>
-        <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required>
+        <input id="email" type="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" required>
         <label for="password">Password</label>
         <input id="password" type="password" autocomplete="current-password">
-        <button type="button" id="pwbtn">Sign in</button>
-        <button type="submit" id="sendbtn" class="secondary">Or send me a link</button>
+        <button type="submit" id="pwbtn">Sign in</button>
       </form>
-      <p class="small"><button type="button" class="link" id="havecode">I have a code</button></p>
-    </div>
-    <div id="step-code" hidden>
-      <p class="lead">Check your email at <b id="sentto"></b>. Open the link from the email, or type the code from it here.</p>
-      <form id="codeform" autocomplete="off" novalidate>
-        <label for="code">Code from the email</label>
-        <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" spellcheck="false">
-        <button type="submit" id="codebtn">Sign in</button>
-      </form>
-      <p class="small"><button type="button" class="link" id="again">Send another</button> · <button type="button" class="link" id="other">Use a different email</button></p>
+      <p class="small">Forgot it? Ask Claude to reset it, or set a new one in the Supabase SQL editor (see the README).</p>
     </div>
     <p class="status" id="signinstatus" role="status" aria-live="polite"></p>
   </div>
@@ -75,6 +65,7 @@
       <select id="addarea" aria-label="Area"></select>
       <button type="submit">Add</button>
     </form>
+    <button type="button" class="out" id="changepw" title="Change password">Password</button>
     <button type="button" class="out" id="signout" title="Sign out">Sign out</button>
   </header>
   <div id="banner" hidden></div>
@@ -102,6 +93,18 @@
 
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.49.4.js"></script>
+<dialog id="pwdialog" class="card">
+  <form id="pwform" method="dialog" novalidate>
+    <h2>Change password</h2>
+    <label for="newpw">New password</label>
+    <input id="newpw" type="password" autocomplete="new-password" minlength="8">
+    <label for="newpw2">New password again</label>
+    <input id="newpw2" type="password" autocomplete="new-password" minlength="8">
+    <p class="status" id="pwstatus" role="status" aria-live="polite"></p>
+    <button type="submit" id="pwsave">Save</button>
+    <button type="button" class="secondary" id="pwcancel">Cancel</button>
+  </form>
+</dialog>
 <script src="app.js"></script>
 </body>
 </html>

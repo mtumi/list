@@ -76,3 +76,13 @@ URLs (step 2 below).
    tick "Enforce HTTPS".
 9. **Install.** Mac: open the page in Safari, File, Add to Dock. iPad: Safari, Share, Add to Home Screen.
    Sign in inside the installed app with the code from the email.
+
+## Password
+
+Sign-in is email and password only, for mt@secretprogress.com; there is no sign-up. Change the password from the
+"Password" button in the app. If it is forgotten, set a new one in the Supabase SQL editor (Michael types the
+password himself):
+
+    update auth.users
+    set encrypted_password = extensions.crypt('NEW-PASSWORD', extensions.gen_salt('bf'))
+    where email = 'mt@secretprogress.com';

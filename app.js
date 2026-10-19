@@ -35,7 +35,7 @@ function screen(name) {
   $('app').hidden = name !== 'app';
 }
 function signinStatus(text, kind) { const s = $('signinstatus'); s.textContent = text || ''; s.className = 'status' + (kind ? ' ' + kind : ''); }
-function showStep(step) { $('step-email').hidden = step !== 'email'; $('step-code').hidden = step !== 'code'; }
+function showStep() { $('step-email').hidden = false; }
 
 // ---------- talking to Supabase
 async function call(fn, args = {}, retried = false) {
@@ -424,34 +424,7 @@ function explainAuthError(error) {
   if (/fetch|network/i.test(m)) return 'Supabase did not answer. Check the connection and try again.';
   return m.slice(0, 200) || 'Something went wrong.';
 }
-async function sendLink(email) {
-  $('sendbtn').disabled = true; signinStatus('Sending.');
-  const {error} = await sb.auth.signInWithOtp({email, options: {emailRedirectTo: (location.hostname === 'list.secretprogress.com' ? 'https://list.secretprogress.com' : location.origin) + location.pathname, shouldCreateUser: true}});
-  $('sendbtn').disabled = false;
-  if (error) { signinStatus(explainAuthError(error), 'err'); return false; }
-  sentTo = email; $('sentto').textContent = email; showStep('code'); signinStatus('Sent.', 'good');
-  try { localStorage.setItem('list-last-email', email); } catch (e) { /* private mode */ }
-  setTimeout(() => $('code').focus(), 50);
-  return true;
-}
-$('emailform').addEventListener('submit', e => {
-  e.preventDefault();
-  const email = $('email').value.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { signinStatus('Type a whole email address.', 'err'); return; }
-  sendLink(email);
-});
-$('codeform').addEventListener('submit', async e => {
-  e.preventDefault();
-  const token = $('code').value.replace(/\s+/g, '');
-  if (!/^\d{6,10}$/.test(token)) { signinStatus('Type the code from the email: digits only.', 'err'); return; }
-  $('codebtn').disabled = true; signinStatus('Checking.');
-  const {error} = await sb.auth.verifyOtp({email: sentTo, token, type: 'email'});
-  $('codebtn').disabled = false;
-  if (error) signinStatus(explainAuthError(error), 'err');
-  else signinStatus('Signed in.', 'good');
-});
-$('again').onclick = () => sentTo && sendLink(sentTo);
-$('pwbtn').onclick = async () => {
+async function passwordSignIn() {
   const email = $('email').value.trim().toLowerCase(), password = $('password').value;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { signinStatus('Type a whole email address.', 'err'); return; }
   if (!password) { signinStatus('Type your password.', 'err'); $('password').focus(); return; }
@@ -460,16 +433,23 @@ $('pwbtn').onclick = async () => {
   $('pwbtn').disabled = false;
   if (error) signinStatus(/invalid login/i.test(error.message || '') ? 'Wrong email or password.' : explainAuthError(error), 'err');
   else { signinStatus('Signed in.', 'good'); try { localStorage.setItem('list-last-email', email); } catch (e) { /* private mode */ } }
-};
-$('password').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('pwbtn').click(); } });
-$('havecode').onclick = () => {
-  let email = $('email').value.trim().toLowerCase();
-  if (!email) { try { email = localStorage.getItem('list-last-email') || ''; } catch (e) { /* private mode */ } }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { signinStatus('Type your email above first, then press "I have a code".', 'err'); $('email').focus(); return; }
-  sentTo = email; $('sentto').textContent = email; showStep('code'); signinStatus('');
-  setTimeout(() => $('code').focus(), 50);
-};
-$('other').onclick = () => { showStep('email'); signinStatus(''); $('email').focus(); };
+}
+$('emailform').addEventListener('submit', e => { e.preventDefault(); passwordSignIn(); });
+$('changepw').onclick = () => { $('newpw').value = ''; $('newpw2').value = ''; $('pwstatus').textContent = ''; $('pwdialog').showModal(); setTimeout(() => $('newpw').focus(), 50); };
+$('pwcancel').onclick = () => $('pwdialog').close();
+$('pwform').addEventListener('submit', async e => {
+  e.preventDefault();
+  const a = $('newpw').value, b = $('newpw2').value, st = $('pwstatus');
+  st.className = 'status err';
+  if (a.length < 8) { st.textContent = 'Use at least 8 characters.'; return; }
+  if (a !== b) { st.textContent = 'The two passwords do not match.'; return; }
+  $('pwsave').disabled = true; st.className = 'status'; st.textContent = 'Saving.';
+  const {error} = await sb.auth.updateUser({password: a});
+  $('pwsave').disabled = false;
+  if (error) { st.className = 'status err'; st.textContent = String(error.message || 'Supabase refused that.').slice(0, 200); return; }
+  st.className = 'status good'; st.textContent = 'Password changed.';
+  setTimeout(() => $('pwdialog').close(), 900);
+});
 async function signOut() {
   started = false; data = null; stamp = null;
   if (channel) { try { await sb.removeChannel(channel); } catch (e) { /* ignore */ } channel = null; }
@@ -532,7 +512,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 
 (async () => {
   if (!window.supabase || !CFG.supabaseUrl || !CFG.publishableKey || /PASTE_/.test(CFG.publishableKey)) {
-    screen('signin'); showStep('email'); $('sendbtn').disabled = true;
+    screen('signin'); showStep('email'); $('pwbtn').disabled = true;
     signinStatus('This copy of the page has no Supabase key yet. Put the publishable key in config.js.', 'err');
     return;
   }
