@@ -426,7 +426,7 @@ function explainAuthError(error) {
 }
 async function sendLink(email) {
   $('sendbtn').disabled = true; signinStatus('Sending.');
-  const {error} = await sb.auth.signInWithOtp({email, options: {emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true}});
+  const {error} = await sb.auth.signInWithOtp({email, options: {emailRedirectTo: (location.hostname === 'list.secretprogress.com' ? 'https://list.secretprogress.com' : location.origin) + location.pathname, shouldCreateUser: true}});
   $('sendbtn').disabled = false;
   if (error) { signinStatus(explainAuthError(error), 'err'); return false; }
   sentTo = email; $('sentto').textContent = email; showStep('code'); signinStatus('Sent.', 'good');
