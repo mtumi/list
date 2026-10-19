@@ -174,8 +174,7 @@ function itemRow(t) {
   st.setAttribute('aria-label', `${clean(t.title)}: ${t.status === 'doing' ? 'in progress' : t.status === 'todo' ? 'to do' : 'done'}. Tap to mark ${next === 'doing' ? 'in progress' : next === 'todo' ? 'to do' : 'done'}.`);
   st.onclick = () => act('todo_status', {item: String(t.id), status: next}, 'Changing status', () => { t.status = next; });
   const title = el('span', 'title' + (t.notes ? ' has-notes' : ''), clean(t.title)); title.title = clean(t.title); title.tabIndex = 0;
-  const toggle = () => { openNotes.has(t.id) ? openNotes.delete(t.id) : openNotes.add(t.id); render(); };
-  title.onclick = toggle; title.onkeydown = e => { if (e.key === 'Enter') toggle(); };
+  title.onclick = () => openDetail(t); title.onkeydown = e => { if (e.key === 'Enter') openDetail(t); };
   li.append(st, title);
   if (t.recurring) li.append(el('span', 'tag', t.cadence || 'repeats'));
   if (t.alongside) li.append(el('span', 'tag', 'alongside'));
@@ -337,6 +336,9 @@ function openDetail(t) {
   else if (t.status !== 'done') btn('Start clock', 'secondary', () => act('todo_start', {item: String(t.id)}, 'Starting'));
   if (t.status !== 'done') btn('Mark done', '', () => act('todo_done', {item: String(t.id)}, 'Marking done', () => { t.status = 'done'; }));
   else btn('Reopen', 'secondary', () => act('todo_status', {item: String(t.id), status: 'todo'}, 'Reopening', () => { t.status = 'todo'; }));
+  const del = el('button', 'danger-btn', 'Delete'); del.type = 'button';
+  del.onclick = async () => { if (!confirm('Delete "' + clean(t.title) + '"?')) return; d.close(); await act('todo_remove', {item: String(t.id)}, 'Deleting'); };
+  bar.append(del);
   body.append(bar);
   const hide = el('div', 'dhide');
   const lab = el('label', null, 'Hide until'); const inp = document.createElement('input'); inp.type = 'date'; inp.id = 'hideuntil'; lab.htmlFor = 'hideuntil';
@@ -346,9 +348,7 @@ function openDetail(t) {
   const quick = (label, days) => { const b = el('button', 'secondary', label); b.type = 'button';
     b.onclick = () => { const d0 = new Date(); d0.setDate(d0.getDate() + days); inp.value = d0.toLocaleDateString('en-CA'); hb.click(); }; return b; };
   hide.append(lab, inp, hb, quick('Tomorrow', 1), quick('Next week', 7)); body.append(hide);
-  const rm = el('button', 'link danger', 'Remove from the list'); rm.type = 'button';
-  rm.onclick = async () => { if (!confirm('Remove "' + clean(t.title) + '" from the list?')) return; d.close(); await act('todo_remove', {item: String(t.id)}, 'Removing'); };
-  body.append(rm);
+
   d.showModal();
 }
 function card(t) {

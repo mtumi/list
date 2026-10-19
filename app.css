@@ -185,3 +185,4 @@ dialog.detail .dhide label{font:700 .68rem var(--body);letter-spacing:.08em;text
 dialog.detail .dhide input{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
 .col.target{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 dialog.detail .danger{color:var(--warn);align-self:flex-start;margin-top:4px}
+dialog.detail .dbar .danger-btn{background:transparent;color:var(--warn);border:1px solid var(--warn);margin-left:auto}
