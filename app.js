@@ -277,7 +277,7 @@ function renderTime(main) {
 
 // ---------- the board: To do, In progress, Done
 // One card per item: title, area, live clock, repeating and alongside markers. Tap a card for its details;
-// status as in the list. Drag by the grip (touch) or anywhere on the card (mouse) to another column to change
+// status changes only by a drag or the panel's buttons. Drag by the grip (touch) or anywhere on the card (mouse) to another column to change
 // status, or within a column to reorder. Into In progress starts the clock (todo_start, which pauses the main
 // running item unless this one runs alongside); out of it stops the clock; into Done is todo_done.
 let showOlderDone = false, suppressClick = false;
