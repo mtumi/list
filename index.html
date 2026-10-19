@@ -106,10 +106,10 @@
     <button type="button" class="secondary" id="pwcancel">Cancel</button>
   </form>
 </dialog>
-<dialog id="itemdialog" class="card detail">
-  <div id="itembody"></div>
-  <button type="button" class="secondary" id="itemclose">Close</button>
-</dialog>
+<aside id="itempanel" class="sidepanel" hidden aria-label="Item details">
+  <div class="sphead"><div class="spnav"><button type="button" id="itemprev" aria-label="Previous item">&#8593; Previous</button><button type="button" id="itemnext" aria-label="Next item">Next &#8595;</button><span id="itempos"></span><button type="button" id="itemclose" aria-label="Close">Close</button></div><div id="itemmeta"></div></div>
+  <div id="itembody" class="spbody"></div>
+</aside>
 <script src="app.js"></script>
 </body>
 </html>

@@ -141,6 +141,7 @@ function viewPhrase(area, status, mode) {
 // ---------- drawing
 function render() {
   if (!data) return;
+  shownIds = [];
   renderControls(); renderRunning(); renderToday();
   const waiting = (data.notes_for_claude || []).length;
   $('notecount').hidden = !waiting; $('notecount').textContent = waiting === 1 ? '1 note waiting for Claude' : `${waiting} notes waiting for Claude`;
@@ -170,6 +171,7 @@ function render() {
   main.append(board);
 }
 function itemRow(t) {
+  shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;
   const st = el('button', 'st'); st.type = 'button'; st.dataset.s = t.status;
   const next = {todo:'doing', doing:'done', done:'todo'}[t.status];
@@ -319,52 +321,106 @@ function linkified(text) {
   });
   return frag;
 }
+function closeDetail() { $('itempanel').hidden = true; document.body.classList.remove('panel-open'); openId = null; }
+let openId = null, shownIds = [];
+function itemById(id) { for (const a of (data && data.areas) || []) for (const x of a.items) if (x.id === id) return x; return null; }
+function step(dir) { const i = shownIds.indexOf(openId); const n = itemById(shownIds[i + dir]); if (n) openDetail(n); }
 function openDetail(t) {
-  const d = $('itemdialog'), body = $('itembody'); body.textContent = '';
-  body.append(el('div', 'dmeta', [t.area, t.group ? clean(t.group) : '', STATUS_WORD[t.status]].filter(Boolean).join(' · ')));
-  body.append(el('h2', null, clean(t.title)));
-  if (t.notes) { const n = el('p', 'dnotes'); n.append(linkified(clean(t.notes))); body.append(n); }
+  openId = t.id;
+  const p = $('itempanel'), body = $('itembody'); body.textContent = '';
+  const short = g => clean(g || '').replace(/\s*\(.*$/, '');
+  $('itemmeta').textContent = [t.area, short(t.group), STATUS_WORD[t.status]].filter(Boolean).join(' · ');
+  const advance = fn => async () => { const i = shownIds.indexOf(t.id); const nid = shownIds[i + 1] ?? shownIds[i - 1];
+    await fn(); const n = nid != null && itemById(nid); n ? openDetail(n) : closeDetail(); };
+  const stay = fn => async () => { await fn(); const n = itemById(t.id); n ? openDetail(n) : closeDetail(); };
+  const pos = shownIds.indexOf(t.id);
+  $('itemprev').disabled = pos <= 0; $('itemnext').disabled = pos < 0 || pos >= shownIds.length - 1;
+  $('itempos').textContent = pos >= 0 ? `${pos + 1} of ${shownIds.length}` : '';
+
+  const ti = document.createElement('textarea'); ti.className = 'dtitle'; ti.rows = 1; ti.value = t.title || ''; ti.setAttribute('aria-label', 'Title');
+  const fit = () => { ti.style.height = 'auto'; ti.style.height = ti.scrollHeight + 'px'; };
+  ti.addEventListener('input', fit); body.append(ti); setTimeout(fit, 0);
+
   const facts = [];
-  if (t.recurring) facts.push('Repeats: ' + (t.cadence || 'yes'));
-  if (t.alongside) facts.push('Can run alongside other work');
-  if (t.show_from) facts.push('Hidden until ' + t.show_from);
-  const mins = (t.minutes_today || 0);
-  if (t.running_since) facts.push('Clock running since ' + new Date(t.running_since).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}));
-  else if (mins >= 1) facts.push('Today: ' + fmtMin(mins));
+  if (t.schedule) facts.push('Repeats ' + (t.cadence || t.schedule));
+  else if (t.recurring) facts.push('Repeats: ' + (t.cadence || 'yes'));
+  if (t.schedule && t.status === 'done' && t.next_due) facts.push('back on ' + t.next_due);
+  if (t.schedule && t.done_this_week) facts.push(`done ${t.done_this_week} of the last 7 days`);
+  if (t.alongside) facts.push('can run alongside other work');
+  if (t.show_from) facts.push('hidden until ' + t.show_from);
+  if (t.running_since) facts.push('clock running since ' + new Date(t.running_since).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}));
+  else if ((t.minutes_today || 0) >= 1) facts.push('today ' + fmtMin(t.minutes_today));
   if (facts.length) body.append(el('p', 'dfacts', facts.join(' · ')));
-  const nfc = t.notes_for_claude || [];
-  const box = el('div', 'dclaude'); box.append(el('div', 'dlabel', 'Note for Claude'));
-  for (const n of nfc) {
+
+  const bar = el('div', 'dbar');
+  const btn = (label, cls, run, mode) => { const b = el('button', cls, label); b.type = 'button'; b.onclick = (mode === 'stay' ? stay : advance)(run); bar.append(b); };
+  if (t.status !== 'done') btn('Mark done', 'primary', () => act('todo_done', {item: String(t.id)}, 'Marking done', () => { t.status = 'done'; }));
+  else btn('Reopen', 'secondary', () => act('todo_status', {item: String(t.id), status: 'todo'}, 'Reopening', () => { t.status = 'todo'; }), 'stay');
+  if (t.running_since) btn('Pause clock', 'secondary', () => act('todo_pause', {item: String(t.id)}, 'Pausing'), 'stay');
+  else if (t.status !== 'done') btn('Start clock', 'secondary', () => act('todo_start', {item: String(t.id)}, 'Starting'), 'stay');
+  body.append(bar);
+
+  const hide = el('div', 'dsection'); hide.append(el('div', 'dlabel', 'Hide until'));
+  const chips = el('div', 'dchips');
+  const hideTo = v => advance(() => act('todo_hide_until', {item: String(t.id), until: v}, 'Hiding'));
+  const plus = n => { const d0 = new Date(); d0.setDate(d0.getDate() + n); return d0.toLocaleDateString('en-CA'); };
+  for (const [label, n] of [['Tomorrow', 1], ['In 2 days', 2], ['Next week', 7]]) { const c = el('button', 'chip', label); c.type = 'button'; c.onclick = hideTo(plus(n)); chips.append(c); }
+  const inp = document.createElement('input'); inp.type = 'date'; inp.className = 'chipdate'; if (t.show_from) inp.value = t.show_from;
+  inp.setAttribute('aria-label', 'Hide until date'); inp.onchange = () => { if (inp.value) hideTo(inp.value)(); };
+  chips.append(inp);
+  if (t.show_from) { const c = el('button', 'chip', 'Show now'); c.type = 'button'; c.onclick = stay(() => act('todo_hide_until', {item: String(t.id), until: null}, 'Showing')); chips.append(c); }
+  hide.append(chips); body.append(hide);
+
+  const ns = el('div', 'dsection'); ns.append(el('div', 'dlabel', 'Notes'));
+  const na = document.createElement('textarea'); na.className = 'dnotesedit'; na.value = t.notes || ''; na.placeholder = 'Add notes';
+  const view = el('div', 'dnotes'); view.append(linkified(clean(t.notes || '')));
+  if (t.notes) ns.append(view);
+  const editBtn = el('button', 'linkbtn', t.notes ? 'Edit notes' : 'Add notes'); editBtn.type = 'button';
+  editBtn.onclick = () => { view.hidden = true; editBtn.hidden = true; na.hidden = false; na.focus(); };
+  na.hidden = true; ns.append(editBtn, na); body.append(ns);
+
+  const rs = el('div', 'dsection'); rs.append(el('div', 'dlabel', 'Repeats'));
+  const sel = document.createElement('select'); sel.className = 'dselect';
+  for (const [v, l] of [['', 'Does not repeat'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekends', 'Weekends'], ['weekly', 'Once a week'], ['custom', 'Certain days']]) {
+    const o = document.createElement('option'); o.value = v; o.textContent = l; sel.append(o); }
+  const cur = t.schedule || ''; sel.value = ['', 'daily', 'weekdays', 'weekends', 'weekly'].includes(cur) ? cur : 'custom';
+  const dayBox = el('div', 'ddays'); const picked = new Set(sel.value === 'custom' ? cur.split(',') : []);
+  for (const dn of ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) {
+    const lb = el('label', 'dday'); const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = dn; cb.checked = picked.has(dn);
+    lb.append(cb, dn[0].toUpperCase() + dn.slice(1)); dayBox.append(lb); }
+  dayBox.hidden = sel.value !== 'custom'; sel.onchange = () => { dayBox.hidden = sel.value !== 'custom'; };
+  rs.append(sel, dayBox); body.append(rs);
+
+  const save = el('button', 'primary savebtn', 'Save changes'); save.type = 'button';
+  save.onclick = async () => {
+    const title = ti.value.trim(), notes = na.hidden ? (t.notes || '') : na.value;
+    const sched = sel.value === 'custom' ? [...dayBox.querySelectorAll('input:checked')].map(c => c.value).join(',') : sel.value;
+    await stay(async () => {
+      if ((title && title !== t.title) || notes !== (t.notes || '')) await act('todo_edit', {item: String(t.id), title: title || null, notes}, 'Saving');
+      if ((sched || '') !== (t.schedule || '')) await act('todo_schedule', {item: String(t.id), schedule: sched || 'none'}, 'Saving the repeat');
+    })();
+  };
+  body.append(save);
+
+  const box = el('div', 'dsection'); box.append(el('div', 'dlabel', 'Note for Claude'));
+  for (const n of (t.notes_for_claude || [])) {
     const row = el('p', 'dnote' + (n.status === 'pending' ? ' pending' : ''));
     row.append(el('span', null, n.note), el('span', 'dnstat', n.status === 'pending' ? 'waiting' : 'handled' + (n.outcome ? ': ' + n.outcome : '')));
     box.append(row);
   }
-  const ta = document.createElement('textarea'); ta.id = 'claudenote'; ta.rows = 2; ta.placeholder = 'For example: split this into two, or: done, Stephen cancelled';
+  const ta = document.createElement('textarea'); ta.rows = 2; ta.className = 'dnotesedit'; ta.placeholder = 'For example: split this into two, or: done, Stephen cancelled';
   const send = el('button', 'secondary', 'Save note'); send.type = 'button';
-  send.onclick = async () => { const v = ta.value.trim(); if (!v) return; d.close(); await act('todo_note_add', {item: String(t.id), note: v}, 'Saving the note'); };
+  send.onclick = () => { const v = ta.value.trim(); if (!v) return; stay(() => act('todo_note_add', {item: String(t.id), note: v}, 'Saving the note'))(); };
   box.append(ta, send); body.append(box);
-  const bar = el('div', 'dbar');
-  const btn = (label, cls, run) => { const b = el('button', cls, label); b.type = 'button'; b.onclick = async () => { d.close(); await run(); }; bar.append(b); };
-  if (t.running_since) btn('Pause clock', 'secondary', () => act('todo_pause', {item: String(t.id)}, 'Pausing'));
-  else if (t.status !== 'done') btn('Start clock', 'secondary', () => act('todo_start', {item: String(t.id)}, 'Starting'));
-  if (t.status !== 'done') btn('Mark done', '', () => act('todo_done', {item: String(t.id)}, 'Marking done', () => { t.status = 'done'; }));
-  else btn('Reopen', 'secondary', () => act('todo_status', {item: String(t.id), status: 'todo'}, 'Reopening', () => { t.status = 'todo'; }));
-  const del = el('button', 'danger-btn', 'Delete'); del.type = 'button';
-  del.onclick = async () => { d.close(); await act('todo_remove', {item: String(t.id)}, 'Deleting'); };
-  bar.append(del);
-  body.append(bar);
-  const hide = el('div', 'dhide');
-  const lab = el('label', null, 'Hide until'); const inp = document.createElement('input'); inp.type = 'date'; inp.id = 'hideuntil'; lab.htmlFor = 'hideuntil';
-  if (t.show_from) inp.value = t.show_from;
-  const hb = el('button', 'secondary', 'Hide'); hb.type = 'button';
-  hb.onclick = async () => { if (!inp.value) return; d.close(); await act('todo_hide_until', {item: String(t.id), until: inp.value}, 'Hiding'); };
-  const quick = (label, days) => { const b = el('button', 'secondary', label); b.type = 'button';
-    b.onclick = () => { const d0 = new Date(); d0.setDate(d0.getDate() + days); inp.value = d0.toLocaleDateString('en-CA'); hb.click(); }; return b; };
-  hide.append(lab, inp, hb, quick('Tomorrow', 1), quick('Next week', 7)); body.append(hide);
 
-  d.showModal();
+  const del = el('button', 'deletebtn', 'Delete this item'); del.type = 'button';
+  del.onclick = advance(() => act('todo_remove', {item: String(t.id)}, 'Deleting'));
+  body.append(del);
+
+  p.hidden = false; p.scrollTop = 0; document.body.classList.add('panel-open');
 }
 function card(t) {
+  shownIds.push(t.id);
   const li = el('li', 'kcard'); li.dataset.id = t.id; li.dataset.s = t.status; li.dataset.area = t.area;
   li.style.setProperty('--area', color(t.area)); li.tabIndex = 0;
   const next = {todo:'doing', doing:'done', done:'todo'}[t.status];
@@ -502,8 +558,15 @@ async function passwordSignIn() {
 $('emailform').addEventListener('submit', e => { e.preventDefault(); passwordSignIn(); });
 $('changepw').onclick = () => { $('newpw').value = ''; $('newpw2').value = ''; $('pwstatus').textContent = ''; $('pwdialog').showModal(); setTimeout(() => $('newpw').focus(), 50); };
 $('pwcancel').onclick = () => $('pwdialog').close();
-$('itemclose').onclick = () => $('itemdialog').close();
-$('itemdialog').addEventListener('click', e => { if (e.target === $('itemdialog')) $('itemdialog').close(); });
+$('itemclose').onclick = closeDetail;
+$('itemprev').onclick = () => step(-1); $('itemnext').onclick = () => step(1);
+document.addEventListener('keydown', e => {
+  if ($('itempanel').hidden) return;
+  if (e.key === 'Escape') { closeDetail(); return; }
+  if (/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) return;
+  if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); step(1); }
+  if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); step(-1); }
+});
 $('pwform').addEventListener('submit', async e => {
   e.preventDefault();
   const a = $('newpw').value, b = $('newpw2').value, st = $('pwstatus');
