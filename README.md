@@ -1,15 +1,33 @@
-# list.secretprogress.com
+# Secret progress (list.secretprogress.com)
 
 A to-do list and time log for one person, as a static web app: plain HTML, CSS and JavaScript, no build
 step. List view, board view (To do, In progress, Done) and a time log. Installable on a Mac Dock and an iPad
-home screen.
+home screen. The look is borrowed from the workstream boards (`_systemdesign/render_worklist.py`): Fraunces
+headings, Source Sans 3 text, JetBrains Mono chips and labels, at the list's own tighter size.
+
+## What it shows
+
+- Every item carries a code (JOB-4, MUSIC-2, ACT-20) on its card, row and panel; voice accepts the code.
+- Tapping an item opens a side panel (Previous and Next step through what is shown): title, "Done when",
+  waiting on, a question with an answer box ("Your call"; saving also leaves a note for Claude), steps with
+  tick boxes and "Add a step", sub-items, hide until, notes, repeats, who does it (Michael, Claude, or both,
+  with a prompt and "Copy prompt for Claude"), background, a note for Claude, delete.
+- An item linked to a workstream opens that workstream in the panel: its purpose, each track's items with
+  owner and status, tick boxes for Michael's runnable items, the Brief and an answer box for calls, and
+  "Copy prompt" for Claude's runnable items. Ticks and calls are written into the markdown by the drain
+  within 15 minutes (`render_worklist.py --check` and `--decide`).
+- Cards and rows show small chips: steps done ("3/9"), sub-items done, workstream progress, "Your call",
+  "Claude", "bg" (background: runs without attention; its time stays out of focus time), "Waiting on".
+- Drag a card between cards or columns to move it; drop it on the middle of another card to make it a
+  sub-item (the target is outlined); drag a sub-item out to take it out. Moving to In progress does not start
+  the clock; the play mark on any card or row does, and any number of clocks can run at once.
 
 ## How it is private
 
 The page holds only the Supabase project address and its publishable key, both public by design. Everything
 else is decided in the database:
 
-- Sign-in is Supabase Auth by emailed link or code. No passwords.
+- Sign-in is Supabase Auth, email and password for the one allowed address (migration 020; see Password).
 - The page calls only the functions in schema `todo_api` (migration
   `_systemdesign/supabase/migrations/20261019_018_todo_api.sql` in the life repository). Each one checks the
   signed-in token before doing anything: one allowed address (kept in one database row), a session opened by

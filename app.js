@@ -1,4 +1,4 @@
-// list.secretprogress.com: the to-do list page, standalone at list.secretprogress.com.
+// Secret progress: the to-do list page, standalone at list.secretprogress.com.
 // Same design and behaviour as the claude.ai page it replaces. What changed: it signs in to Supabase Auth
 // itself (emailed link or code, no password) and calls the todo_api functions through the Supabase web
 // interface. Every function checks the signed-in address in the database; this file decides nothing about
@@ -7,7 +7,7 @@
 'use strict';
 
 const CFG = window.LIST_CONFIG || {};
-const AREA_COLOR = {'Job search':'--a1','Music':'--a2',"Will's recruiting":'--a3','Health':'--a4','AI/System':'--a5','System':'--a5','Home':'--a6','Other':'--a0'};
+const AREA_COLOR = {'Job search':'--a1','Music':'--a2',"Will's recruiting":'--a3','Will':'--a3','Health':'--a4','AI/System':'--a5','System':'--a5','Home':'--a6','Other':'--a0'};
 const POLL_FAST = 4000, POLL_SLOW = 30000;
 
 let sb = null, session = null, started = false, channel = null, live = false, lastPoll = 0;
@@ -27,6 +27,50 @@ const fmtTime = iso => new Date(iso).toLocaleTimeString([], {hour:'numeric', min
 const SVG_PLAY = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1l9 5-9 5z"/></svg>';
 const SVG_PAUSE = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 1h3v10H2zM7 1h3v10H7z"/></svg>';
 const SVG_GRIP = '<svg viewBox="0 0 8 14" aria-hidden="true"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="2" cy="7" r="1.3"/><circle cx="6" cy="7" r="1.3"/><circle cx="2" cy="12" r="1.3"/><circle cx="6" cy="12" r="1.3"/></svg>';
+const OWNER_WORD = {michael: 'Michael', claude: 'Claude', both: 'Michael with Claude'};
+// The small markers on a row or card: Claude's item, steps done, workstream progress, an open call, waiting.
+function markers(t) {
+  const out = [];
+  const tag = (cls, text, title) => { const e = el('span', 'tag ' + cls, text); if (title) e.title = title; out.push(e); };
+  if (t.owner === 'claude') tag('claude', 'Claude', 'Claude does this one');
+  else if (t.owner === 'both') tag('claude', 'with Claude', 'Michael with Claude');
+  if (t.alongside) tag('bg', 'bg', 'Background: runs without your attention; its time stays out of focus time');
+  if (t.children_total) tag('steps', `${t.children_done} of ${t.children_total} sub-items done`, 'Sub-items done');
+  if (t.steps_total) tag('steps', `${t.steps_done}/${t.steps_total}`, `${t.steps_done} of ${t.steps_total} steps done`);
+  if (t.workstream) tag('steps', `${t.workstream.items_done} of ${t.workstream.items_total} done`, 'Workstream items done');
+  if (t.your_call) tag('call', 'Your call', t.question ? clean(t.question).slice(0, 200) : 'A workstream item is waiting for your call');
+  if (t.waiting && t.waiting_on_title) tag('wait', 'Waiting on: ' + clean(t.waiting_on_title), 'Waiting on: ' + clean(t.waiting_on_title));
+  return out;
+}
+const codeLabel = t => { const c = el('span', 'cid', t.code || ''); c.title = 'Say this code to name the item'; return c; };
+// True when item `id` sits somewhere under item `ancestor`.
+function isUnder(id, ancestor) { let x = itemById(id), n = 0; while (x && x.parent_id && n++ < 20) { if (x.parent_id === ancestor) return true; x = itemById(x.parent_id); } return false; }
+async function copyText(text, done) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.append(ta); ta.select(); try { document.execCommand('copy'); } catch (e2) { /* nothing more to try */ } ta.remove();
+  }
+  toast(done || 'Copied.');
+}
+// Workstream Briefs are short markdown: paragraphs, bullet lines and **bold**. Built from text nodes only.
+function prose(text) {
+  const box = el('div', 'prose');
+  const inline = (parent, line) => {
+    String(line).split(/(\*\*[^*]+\*\*)/g).forEach(part => {
+      if (/^\*\*[^*]+\*\*$/.test(part)) parent.append(el('b', null, part.slice(2, -2).replace(/`/g, '')));
+      else if (part) parent.append(linkified(part.replace(/`/g, '')));
+    });
+  };
+  for (const block of String(text || '').split(/\n\s*\n/)) {
+    const lines = block.split('\n').filter(l => l.trim());
+    if (!lines.length) continue;
+    if (lines.every(l => /^\s*([-*]|\d+[.)])\s+/.test(l))) {
+      const ul = el('ul'); for (const l of lines) { const li = el('li'); inline(li, l.replace(/^\s*([-*]|\d+[.)])\s+/, '')); ul.append(li); } box.append(ul);
+    } else { const p = el('p'); inline(p, lines.join(' ')); box.append(p); }
+  }
+  return box;
+}
 
 // ---------- screens
 function screen(name) {
@@ -142,7 +186,7 @@ function viewPhrase(area, status, mode) {
 function render() {
   if (!data) return;
   shownIds = [];
-  renderControls(); renderRunning(); renderToday();
+  renderControls(); renderRunning(); renderToday(); renderTally();
   const waiting = (data.notes_for_claude || []).length;
   $('notecount').hidden = !waiting; $('notecount').textContent = waiting === 1 ? '1 note waiting for Claude' : `${waiting} notes waiting for Claude`;
   const main = $('main'); main.replaceChildren();
@@ -155,14 +199,21 @@ function render() {
     const items = a.items.filter(t => view.status === 'all' ? true : view.status === 'doing' ? t.status === 'doing' : t.status !== 'done');
     if (view.status === 'doing' && !items.length && !view.area) continue;
     const box = el('section', 'area'); box.dataset.area = a.area;
-    const h = el('h2'); const sw = el('span', 'sw'); sw.style.background = color(a.area);
+    const h = el('h2'); h.style.setProperty('--rail', color(a.area)); const sw = el('span', 'sw'); sw.style.background = color(a.area);
     h.append(sw, el('span', null, a.area), el('span', 'n', `${a.open} open`)); box.append(h);
     const ul = el('ul', 'items'); ul.dataset.area = a.area;
     let group;
-    for (const t of items) {
-      if (t.group !== group) { group = t.group; if (group) { const g = el('li', 'group', clean(group)); g.title = clean(group); ul.append(g); } }
-      ul.append(itemRow(t));
+    const here = new Set(items.map(t => t.id)), kids = {};
+    for (const t of items) if (t.parent_id && here.has(t.parent_id)) (kids[t.parent_id] = kids[t.parent_id] || []).push(t);
+    const addRow = (t, depth) => {
+      ul.append(itemRow(t, depth));
       if (openNotes.has(t.id) && t.notes) ul.append(el('li', 'notes', clean(t.notes)));
+      if (depth < 6) for (const c of kids[t.id] || []) addRow(c, depth + 1);
+    };
+    for (const t of items) {
+      if (t.parent_id && here.has(t.parent_id)) continue;
+      if (t.group !== group) { group = t.group; if (group) { const g = el('li', 'group', clean(group)); g.title = clean(group); ul.append(g); } }
+      addRow(t, 0);
     }
     if (!items.length) ul.append(el('li', 'empty', view.status === 'doing' ? 'Nothing in progress here.' : 'Nothing open here.'));
     box.append(ul); board.append(box);
@@ -170,9 +221,10 @@ function render() {
   if (!board.children.length) board.append(el('div', 'empty', 'Nothing in progress right now.'));
   main.append(board);
 }
-function itemRow(t) {
+function itemRow(t, depth = 0) {
   shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;
+  if (depth) { li.classList.add('sub'); li.style.setProperty('--depth', depth); }
   const st = el('button', 'st'); st.type = 'button'; st.dataset.s = t.status;
   const next = {todo:'doing', doing:'done', done:'todo'}[t.status];
   st.setAttribute('aria-label', `${clean(t.title)}: ${t.status === 'doing' ? 'in progress' : t.status === 'todo' ? 'to do' : 'done'}. Tap to mark ${next === 'doing' ? 'in progress' : next === 'todo' ? 'to do' : 'done'}.`);
@@ -180,8 +232,9 @@ function itemRow(t) {
   const title = el('span', 'title' + (t.notes ? ' has-notes' : ''), clean(t.title)); title.title = clean(t.title); title.tabIndex = 0;
   title.onclick = () => openDetail(t); title.onkeydown = e => { if (e.key === 'Enter') openDetail(t); };
   li.append(st, title);
+  if (t.waiting) li.classList.add('waiting');
+  li.append(...markers(t));
   if (t.recurring) li.append(el('span', 'tag', t.cadence || 'repeats'));
-  if (t.alongside) li.append(el('span', 'tag', 'alongside'));
   const running = !!t.running_since;
   const mins = (t.minutes_today || 0) + (running ? (Date.now() - fetchedAt) / 60000 : 0);
   if (mins >= 1 && !running) li.append(el('span', 'mins', fmtMin(mins)));
@@ -192,7 +245,7 @@ function itemRow(t) {
   go.onclick = () => running ? act('todo_pause', {item: String(t.id)}, 'Pausing') : act('todo_start', {item: String(t.id)}, 'Starting');
   const grip = el('button', 'grip'); grip.type = 'button'; grip.innerHTML = SVG_GRIP; grip.setAttribute('aria-label', `Drag to reorder ${clean(t.title)}`);
   grip.addEventListener('pointerdown', e => startDrag(e, li, t));
-  li.append(go, grip);
+  li.append(go, grip, codeLabel(t));
   return li;
 }
 function renderControls() {
@@ -219,13 +272,32 @@ function renderControls() {
   if ([...sel.options].map(o => o.value).join('|') !== names.join('|')) { const keep = sel.value; sel.replaceChildren(...names.map(n => new Option(n, n))); if (names.includes(keep)) sel.value = keep; }
   if (view.area && document.activeElement !== sel && document.activeElement !== $('addtext')) sel.value = view.area;
 }
+// The stat tiles under the title, as on the workstream board: open, in progress, done today, your calls,
+// notes waiting for Claude, time today.
+function renderTally() {
+  const box = $('tally'); box.replaceChildren();
+  $('eyebrow').textContent = new Date().toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'}) + ' · To-do list and time log';
+  const items = data.areas.flatMap(a => a.items);
+  const today = new Date().toDateString();
+  const focusRunning = (data.running || []).some(r => !r.needs_check && !r.alongside);
+  const mins = ((data.time_today && data.time_today.focus_minutes) || 0) + (focusRunning ? (Date.now() - fetchedAt) / 60000 : 0);
+  const tiles = [
+    [items.filter(t => t.status === 'todo').length, 'to do', ''],
+    [items.filter(t => t.status === 'doing').length, 'in progress', 'is-you'],
+    [items.filter(t => t.status === 'done' && t.done_at && new Date(t.done_at).toDateString() === today).length, 'done today', 'is-accent'],
+    [items.filter(t => t.status !== 'done' && t.your_call).length, 'waiting for your call', 'is-you'],
+    [(data.notes_for_claude || []).length, 'notes waiting for Claude', 'is-work'],
+    [fmtMin(mins), 'focus time today', ''],
+  ];
+  for (const [n, l, cls] of tiles) { const s = el('div', 'stat ' + cls); s.append(el('span', 'n', String(n)), el('span', 'l', l)); box.append(s); }
+}
 function renderRunning() {
   const box = $('running'); box.replaceChildren();
   const runs = data.running || [];
-  if (!runs.length) box.append(el('span', 'idle', 'Nothing is running. Press the play mark on an item to start its clock.'));
+  if (!runs.length) box.append(el('span', 'idle', 'Nothing is running. Press \u25b6 on any item to start its clock.'));
   for (const r of runs) {
     const row = el('div', 'run'); row.append(el('span', 'dot'), el('span', 'what', clean(r.what)));
-    if (r.alongside) row.append(el('span', 'side', 'alongside'));
+    if (r.alongside) row.append(el('span', 'tag bg', 'bg'));
     const c = el('span', 'clock'); c.dataset.since = r.started_at; c.textContent = fmtClock(Date.now() - Date.parse(r.started_at)); row.append(c);
     const p = el('button', 'btn', 'Pause'); p.type = 'button';
     p.onclick = () => act('todo_pause', r.item ? {item: String(r.item)} : {}, 'Pausing');
@@ -233,8 +305,10 @@ function renderRunning() {
   }
   for (const n of data.needs_check || []) {
     const row = el('div', 'check');
-    row.append(el('span', null, `${clean(n.what)} ran ${fmtMin(n.minutes)}${n.running ? ' and is still running' : ''}. It is left out of the totals until you say.`));
-    const ok = el('button', 'btn', 'Count it'); ok.type = 'button'; ok.onclick = () => act('todo_time_fix', {entry: n.entry, confirm: true}, 'Confirming');
+    row.append(el('span', null, n.running
+      ? `${clean(n.what)} has been running for ${fmtMin(n.minutes)}. Still going? Its time is left out of today's time until you confirm.`
+      : `${clean(n.what)} ran for ${fmtMin(n.minutes)}. Is that right? Its time is left out of today's time until you confirm.`));
+    const ok = el('button', 'btn', 'Yes, count it'); ok.type = 'button'; ok.onclick = () => act('todo_time_fix', {entry: n.entry, confirm: true}, 'Confirming');
     const no = el('button', 'btn warn', 'Discard'); no.type = 'button'; no.onclick = () => act('todo_time_fix', {entry: n.entry, discard: true}, 'Discarding');
     row.append(ok, no); box.append(row);
   }
@@ -251,7 +325,15 @@ function renderToday() {
     const s = el('span'); s.style.width = (100 * m / total) + '%'; s.style.background = color(a); s.title = `${a}: ${fmtMin(m)}`; strip.append(s);
     const l = el('span'); const sw = el('span', 'sw'); sw.style.background = color(a); l.append(sw, a + ' ', el('b', null, fmtMin(m))); legend.append(l);
   }
-  const tot = el('span'); tot.append('Total ', el('b', null, fmtMin(total))); legend.prepend(tot);
+  // Clocks can run at once: focus time counts overlapping clocks once, background items (laundry) apart.
+  const tt = data.time_today || {}, runs = (data.running || []).filter(r => !r.needs_check);
+  const focus = (tt.focus_minutes || 0) + (runs.some(r => !r.alongside) ? extra : 0);
+  const bg = (tt.background_minutes || 0) + (runs.some(r => r.alongside) ? extra : 0);
+  const tot = el('span'); tot.append('Focus ', el('b', null, fmtMin(focus)));
+  const parts = [tot];
+  if (bg >= 1) { const b = el('span'); b.append('Background ', el('b', null, fmtMin(bg))); parts.push(b); }
+  if (Math.round(total) !== Math.round(focus + bg)) { const a = el('span'); a.title = 'Every item\'s own time added up; clocks that ran at once count twice'; a.append('All items added up ', el('b', null, fmtMin(total))); parts.push(a); }
+  legend.prepend(...parts);
   box.append(strip, legend);
 }
 function renderTime(main) {
@@ -259,7 +341,8 @@ function renderTime(main) {
   if (!t) { main.append(el('div', 'loading', 'Loading the time log.')); return; }
   const wrap = el('div', 'time');
   const left = el('div', 'panel');
-  left.append(el('div', 'label', `Time ${t.span || 'today'}`), el('h2', null, fmtMin(t.total_minutes)));
+  left.append(el('div', 'label', `Focus time ${t.span || 'today'}`), el('h2', null, fmtMin(t.focus_minutes ?? t.total_minutes)));
+  left.append(el('p', 'viewnote', `Clocks that ran at once count once. Background (laundry and the like): ${fmtMin(t.background_minutes || 0)}. Every item's own time added up: ${fmtMin(t.total_minutes)}.`));
   const max = Math.max(1, ...t.by_area.map(a => a.minutes));
   const ra = el('div', 'rows');
   for (const a of t.by_area) { const r = el('div'); const row = el('div', 'row'); row.append(el('span', 't', a.area), el('span', 'v', fmtMin(a.minutes)));
@@ -279,15 +362,20 @@ function renderTime(main) {
 }
 
 // ---------- the board: To do, In progress, Done
-// One card per item: title, area, live clock, repeating and alongside markers. Tap a card for its details;
+// One card per item: title, code, area, live clock, one-click play, and markers. Tap a card for its details;
 // status changes only by a drag or the panel's buttons. Drag by the grip (touch) or anywhere on the card (mouse) to another column to change
 // status, or within a column to reorder. In progress means planned for today: moving a card there does not
 // start the clock (only Start does); moving it out stops a running clock; into Done is todo_done.
 let showOlderDone = false, suppressClick = false;
 const STATUS_WORD = {todo:'to do', doing:'in progress', done:'done'};
+let boardKids = {};
+const collapsedKids = new Set();
 function renderBoard(main) {
   const cols = [['todo', 'To do'], ['doing', 'In progress'], ['done', 'Done']];
-  const items = data.areas.filter(a => !view.area || a.area === view.area).flatMap(a => a.items);
+  const all = data.areas.filter(a => !view.area || a.area === view.area).flatMap(a => a.items);
+  const here = new Set(all.map(t => t.id)); boardKids = {};
+  for (const t of all) if (t.parent_id && here.has(t.parent_id)) (boardKids[t.parent_id] = boardKids[t.parent_id] || []).push(t);
+  const items = all.filter(t => !(t.parent_id && here.has(t.parent_id)));
   const weekAgo = Date.now() - 7 * 864e5;
   const wrap = el('div', 'kanban');
   for (const [s, name] of cols) {
@@ -329,7 +417,7 @@ function openDetail(t) {
   openId = t.id;
   const p = $('itempanel'), body = $('itembody'); body.textContent = '';
   const short = g => clean(g || '').replace(/\s*\(.*$/, '');
-  $('itemmeta').textContent = [t.area, short(t.group), STATUS_WORD[t.status]].filter(Boolean).join(' · ');
+  $('itemmeta').replaceChildren(...(t.code ? [codeLabel(t), ' '] : []), [t.area, short(t.group), STATUS_WORD[t.status]].filter(Boolean).join(' · '));
   const advance = fn => async () => { const i = shownIds.indexOf(t.id); const nid = shownIds[i + 1] ?? shownIds[i - 1];
     await fn(); const n = nid != null && itemById(nid); n ? openDetail(n) : closeDetail(); };
   const stay = fn => async () => { await fn(); const n = itemById(t.id); n ? openDetail(n) : closeDetail(); };
@@ -340,13 +428,20 @@ function openDetail(t) {
   const ti = document.createElement('textarea'); ti.className = 'dtitle'; ti.rows = 1; ti.value = t.title || ''; ti.setAttribute('aria-label', 'Title');
   const fit = () => { ti.style.height = 'auto'; ti.style.height = ti.scrollHeight + 'px'; };
   ti.addEventListener('input', fit); body.append(ti); setTimeout(fit, 0);
+  if (t.done_check) { const dc = el('p', 'ddone'); dc.append(el('b', null, 'Done when: '), linkified(clean(t.done_check))); body.append(dc); }
+  if (t.waiting_on) {
+    const wt = el('p', 'dwait' + (t.waiting ? ' on' : ''));
+    wt.append(el('b', null, t.waiting ? 'Waiting on: ' : 'Was waiting on: '), clean(t.waiting_on_title || ('item ' + t.waiting_on)), t.waiting ? '' : ' (done)');
+    body.append(wt);
+  }
 
   const facts = [];
+  if (t.owner && t.owner !== 'michael') facts.push('Owner: ' + OWNER_WORD[t.owner]);
   if (t.schedule) facts.push('Repeats ' + (t.cadence || t.schedule));
   else if (t.recurring) facts.push('Repeats: ' + (t.cadence || 'yes'));
   if (t.schedule && t.status === 'done' && t.next_due) facts.push('back on ' + t.next_due);
   if (t.schedule && t.done_this_week) facts.push(`done ${t.done_this_week} of the last 7 days`);
-  if (t.alongside) facts.push('can run alongside other work');
+  if (t.alongside) facts.push('bg: runs in the background, without your attention');
   if (t.show_from) facts.push('hidden until ' + t.show_from);
   if (t.running_since) facts.push('clock running since ' + new Date(t.running_since).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}));
   else if ((t.minutes_today || 0) >= 1) facts.push('today ' + fmtMin(t.minutes_today));
@@ -359,6 +454,77 @@ function openDetail(t) {
   if (t.running_since) btn('Pause clock', 'secondary', () => act('todo_pause', {item: String(t.id)}, 'Pausing'), 'stay');
   else if (t.status !== 'done') btn('Start clock', 'secondary', () => act('todo_start', {item: String(t.id)}, 'Starting'), 'stay');
   body.append(bar);
+
+  if (t.owner !== 'michael' && t.prompt) {
+    const cp = el('button', 'secondary', 'Copy prompt for Claude'); cp.type = 'button';
+    cp.onclick = () => copyText(t.prompt, 'Prompt copied. Paste it into a Claude session.');
+    bar.append(cp);
+  }
+
+  if (t.parent_id) {
+    const pp = el('p', 'dparent'); pp.append(el('b', null, 'Sub-item of: '));
+    const par = itemById(t.parent_id);
+    const pl = el('button', 'linkbtn', (par && par.code ? par.code + ' ' : '') + clean(t.parent_title || 'another item')); pl.type = 'button';
+    pl.onclick = () => { if (par) openDetail(par); };
+    const out = el('button', 'linkbtn', 'Take it out'); out.type = 'button';
+    out.onclick = () => stay(() => act('todo_unnest', {item: String(t.id)}, 'Taking it out'))();
+    pp.append(pl, ' · ', out); body.append(pp);
+  }
+  if ((t.children || []).length) {
+    const cs = el('div', 'dsection'); cs.append(el('div', 'dlabel', `Sub-items · ${t.children_done} of ${t.children_total} done`));
+    const ul = el('ul', 'dsubs');
+    for (const c of t.children) {
+      const li = el('li', 'dsub'); li.dataset.s = c.status;
+      const b = el('button', 'dsubbtn'); b.type = 'button';
+      b.append(el('span', 'st mini'), el('span', 'cid', c.code || ''), el('span', 'dsubtitle', clean(c.title)), el('span', 'dsubstat', STATUS_WORD[c.status] || c.status));
+      b.querySelector('.st').dataset.s = c.status;
+      b.onclick = () => { const x = itemById(c.id); if (x) openDetail(x); else toast('That sub-item is hidden or done more than 30 days ago.'); };
+      li.append(b); ul.append(li);
+    }
+    cs.append(ul, el('p', 'dhint', 'Drag a card onto the middle of another card to make it a sub-item; drag it out between cards to take it out.'));
+    body.append(cs);
+  }
+
+  if (t.question) {
+    const qs = el('div', 'dsection dquestion'); qs.append(el('div', 'dlabel', t.answer ? 'Your call (answered)' : 'Your call'));
+    qs.append(prose(t.question));
+    if (t.answer) { const a = el('p', 'danswer'); a.append(el('b', null, 'Your answer: '), clean(t.answer)); qs.append(a); }
+    const qa = document.createElement('textarea'); qa.rows = 3; qa.className = 'dnotesedit short'; qa.placeholder = 'Your answer, in your own words';
+    qa.setAttribute('aria-label', 'Your answer');
+    if (t.answer) qa.value = t.answer;
+    const qb = el('button', 'secondary', t.answer ? 'Change answer' : 'Save answer'); qb.type = 'button';
+    qb.onclick = () => { const v = qa.value.trim(); if (!v) return; stay(() => act('todo_answer', {item: String(t.id), answer: v}, 'Saving the answer'))(); };
+    qs.append(qa, qb, el('p', 'dhint', 'Saving also leaves a note for Claude, so the next session acts on it.'));
+    body.append(qs);
+  }
+
+  const ss = el('div', 'dsection'); ss.append(el('div', 'dlabel', t.steps_total ? `Steps · ${t.steps_done} of ${t.steps_total} done` : 'Steps'));
+  const sl = el('ul', 'dsteps');
+  for (const sp of (t.steps || [])) {
+    const li = el('li', sp.done ? 'done' : ''); const lb = el('label');
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = sp.done;
+    cb.onchange = () => stay(() => act(cb.checked ? 'todo_step_tick' : 'todo_step_untick', {item: String(t.id), step: String(sp.n)}, 'Ticking', () => { sp.done = cb.checked; }))();
+    lb.append(cb, el('span', null, sp.text));
+    const rm = el('button', 'stepx', '\u00d7'); rm.type = 'button'; rm.setAttribute('aria-label', 'Remove step: ' + sp.text);
+    rm.onclick = () => stay(() => act('todo_step_remove', {item: String(t.id), step: String(sp.n)}, 'Removing the step'))();
+    li.append(lb, rm); sl.append(li);
+  }
+  const sf = el('form', 'dstepadd'); sf.autocomplete = 'off';
+  const si = document.createElement('input'); si.placeholder = 'Add a step'; si.setAttribute('aria-label', 'Add a step');
+  const sb2 = el('button', 'secondary', 'Add'); sb2.type = 'submit';
+  sf.append(si, sb2);
+  sf.onsubmit = e => { e.preventDefault(); const v = si.value.trim(); if (!v) return; stay(() => act('todo_step_add', {item: String(t.id), step: v}, 'Adding the step'))(); };
+  ss.append(sl, sf); body.append(ss);
+
+  if (t.source === 'workstream') {
+    const ws = el('div', 'dsection dws'); body.append(ws);
+    if (wsCache[t.id]) renderWorkstream(ws, t, wsCache[t.id]); else ws.append(el('div', 'dlabel', 'Workstream'), el('p', 'dhint', 'Loading the workstream.'));
+    call('todo_workstream', {item: String(t.id)}).then(w => {
+      if (openId !== t.id) return;
+      if (!w || w.ok === false) { ws.replaceChildren(el('div', 'dlabel', 'Workstream'), el('p', 'dhint', (w && w.message) || 'Not available.')); return; }
+      wsCache[t.id] = w; renderWorkstream(ws, t, w);
+    }).catch(e => showError(e, 'Loading the workstream'));
+  }
 
   const hide = el('div', 'dsection'); hide.append(el('div', 'dlabel', 'Hide until'));
   const chips = el('div', 'dchips');
@@ -391,12 +557,41 @@ function openDetail(t) {
   dayBox.hidden = sel.value !== 'custom'; sel.onchange = () => { dayBox.hidden = sel.value !== 'custom'; };
   rs.append(sel, dayBox); body.append(rs);
 
+  const ms = el('div', 'dsection');
+  const field = (label, node) => { const lb = el('label', 'dfield'); lb.append(el('span', 'dlabel', label), node); ms.append(lb); return node; };
+  const ow = document.createElement('select'); ow.className = 'dselect';
+  for (const [v, l] of [['michael', 'Michael'], ['claude', 'Claude'], ['both', 'Michael with Claude']]) { const o = document.createElement('option'); o.value = v; o.textContent = l; ow.append(o); }
+  ow.value = t.owner || 'michael'; field('Who does it', ow);
+  const bgLb = el('label', 'dcheck'); const bgCb = document.createElement('input'); bgCb.type = 'checkbox'; bgCb.checked = !!t.alongside;
+  bgCb.onchange = () => stay(() => act('todo_background', {item: String(t.id), background: bgCb.checked}, 'Saving'))();
+  bgLb.append(bgCb, el('span', null, 'Background (runs without your attention, like laundry); its time stays out of focus time'));
+  ms.append(bgLb);
+  const pr = document.createElement('textarea'); pr.className = 'dnotesedit short'; pr.value = t.prompt || ''; pr.placeholder = 'What Claude should do, as a prompt you can paste';
+  const prWrap = field('Prompt for Claude', pr).parentElement; prWrap.hidden = ow.value === 'michael';
+  ow.onchange = () => { prWrap.hidden = ow.value === 'michael'; };
+  const dcIn = document.createElement('input'); dcIn.className = 'dselect'; dcIn.value = t.done_check || ''; dcIn.placeholder = 'What counts as done'; field('Done when', dcIn);
+  const qIn = document.createElement('textarea'); qIn.className = 'dnotesedit short'; qIn.value = t.question || ''; qIn.placeholder = 'A question you need to answer, if any'; field('Question for you', qIn);
+  const wo = document.createElement('select'); wo.className = 'dselect';
+  wo.append(new Option('Nothing', ''));
+  for (const a of data.areas) for (const x of a.items) if (x.id !== t.id && (x.status !== 'done' || x.id === t.waiting_on)) wo.append(new Option(`${a.area}: ${clean(x.title).slice(0, 70)}`, String(x.id)));
+  if (t.waiting_on && ![...wo.options].some(o => o.value === String(t.waiting_on))) wo.append(new Option(clean(t.waiting_on_title || 'item ' + t.waiting_on), String(t.waiting_on)));
+  wo.value = t.waiting_on ? String(t.waiting_on) : ''; field('Waiting on', wo);
+  body.append(ms);
+
   const save = el('button', 'primary savebtn', 'Save changes'); save.type = 'button';
   save.onclick = async () => {
     const title = ti.value.trim(), notes = na.hidden ? (t.notes || '') : na.value;
     const sched = sel.value === 'custom' ? [...dayBox.querySelectorAll('input:checked')].map(c => c.value).join(',') : sel.value;
+    const args = {item: String(t.id)};
+    if (title && title !== t.title) args.title = title;
+    if (notes !== (t.notes || '')) args.notes = notes;
+    if (ow.value !== (t.owner || 'michael')) args.owner = ow.value;
+    if (pr.value.trim() !== (t.prompt || '')) args.prompt = pr.value;
+    if (dcIn.value.trim() !== (t.done_check || '')) args.done_check = dcIn.value;
+    if (qIn.value.trim() !== (t.question || '')) args.question = qIn.value;
+    if (wo.value !== (t.waiting_on ? String(t.waiting_on) : '')) args.waiting_on = wo.value;
     await stay(async () => {
-      if ((title && title !== t.title) || notes !== (t.notes || '')) await act('todo_edit', {item: String(t.id), title: title || null, notes}, 'Saving');
+      if (Object.keys(args).length > 1) await act('todo_edit', args, 'Saving');
       if ((sched || '') !== (t.schedule || '')) await act('todo_schedule', {item: String(t.id), schedule: sched || 'none'}, 'Saving the repeat');
     })();
   };
@@ -419,6 +614,92 @@ function openDetail(t) {
 
   p.hidden = false; p.scrollTop = 0; document.body.classList.add('panel-open');
 }
+// ---------- a linked workstream, in the side panel
+// The drain copies the markdown (render_worklist.py's parse) every run; this draws that copy. A tick or a call made
+// here is queued and written into the markdown at the next drain run, within 15 minutes.
+const wsCache = {}, wsShowDone = new Set();
+function renderWorkstream(box, t, w) {
+  box.replaceChildren();
+  const d = w.data || {}, items = d.items || [], s = w.summary || {};
+  const pend = {}; for (const a of (w.pending || [])) pend[a.code + ':' + a.kind] = a;
+  box.append(el('div', 'dlabel', 'Workstream'));
+  box.append(el('h3', 'wstitle', clean(w.title || 'Workstream')));
+  if (w.purpose) box.append(el('p', 'wspurpose', clean(w.purpose)));
+  const sum = [`${s.items_done ?? 0} of ${s.items_total ?? items.length} done`];
+  if (s.runnable_mine) sum.push(`${s.runnable_mine} ready for you`);
+  if (s.open_calls) sum.push(`${s.open_calls} waiting for your call`);
+  box.append(el('p', 'dfacts', sum.join(' · ')));
+  if ((w.pending || []).length) box.append(el('p', 'dhint', `${w.pending.length} tick${w.pending.length === 1 ? '' : 's'} or call${w.pending.length === 1 ? '' : 's'} saved here, written to the workstream within 15 minutes.`));
+  const tracks = (d.tracks || []).slice();
+  if (items.some(i => !i.track || !tracks.some(tr => tr.code === i.track))) tracks.push({code: '', name: 'Other items'});
+  const doneCount = items.filter(i => i.kind === 'DONE').length;
+  const showDone = wsShowDone.has(t.id);
+  const stayWs = fn => async () => { await fn(); delete wsCache[t.id]; const n = itemById(t.id); n ? openDetail(n) : closeDetail(); };
+  for (const tr of tracks) {
+    const its = items.filter(i => tr.code ? i.track === tr.code : (!i.track || !tracks.some(x => x.code && x.code === i.track)));
+    if (!its.length) continue;
+    const shown = its.filter(i => showDone || i.kind !== 'DONE');
+    const sec = el('div', 'wstrack');
+    sec.append(el('div', 'wstrackname', (tr.code ? `Track ${tr.code}: ` : '') + clean(tr.name) + ` · ${its.filter(i => i.kind === 'DONE').length} of ${its.length} done`));
+    for (const it of shown) sec.append(wsItem(t, it, pend, stayWs));
+    if (shown.length || !showDone) box.append(sec);
+  }
+  if (doneCount) {
+    const b = el('button', 'linkbtn', showDone ? 'Hide done items' : `Show ${doneCount} done item${doneCount === 1 ? '' : 's'}`); b.type = 'button';
+    b.onclick = () => { showDone ? wsShowDone.delete(t.id) : wsShowDone.add(t.id); renderWorkstream(box, t, w); };
+    box.append(b);
+  }
+  const foot = el('p', 'dhint', `From ${w.path}` + (w.updated_at ? `, copied ${new Date(w.updated_at).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}` : ''));
+  box.append(foot);
+}
+function wsItem(t, it, pend, stayWs) {
+  const state = it.kind === 'DONE' ? 'done' : it.runnable ? 'ready' : 'waiting';
+  const row = el('div', 'wsitem ' + state);
+  const head = el('div', 'wshead');
+  const ticked = pend[it.code + ':check'];
+  const canTick = it.mine && it.runnable && it.kind !== 'DONE' && !it.decides;
+  if (canTick || it.kind === 'DONE') {
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = it.kind === 'DONE' || !!ticked; cb.disabled = it.kind === 'DONE';
+    cb.setAttribute('aria-label', `${it.code} done`);
+    cb.onchange = stayWs(() => act(cb.checked ? 'todo_ws_check' : 'todo_ws_undo', {item: String(t.id), code: it.code}, cb.checked ? 'Ticking' : 'Taking it back'));
+    head.append(cb);
+  } else head.append(el('span', 'wsdot'));
+  head.append(el('span', 'wscode', it.code), el('span', 'wsname', clean(it.title)));
+  row.append(head);
+  let status = it.kind === 'DONE' ? 'Done' + (it.status_note ? ` (${it.status_note})` : '')
+             : it.kind === 'BLOCKED' ? 'Blocked' + (it.status_note ? `: ${it.status_note}` : '')
+             : it.waiting_on && it.waiting_on.length ? 'Waiting on ' + it.waiting_on.join(', ')
+             : it.kind === 'IN PROGRESS' ? 'In progress' : 'Runnable now';
+  if (ticked) status = 'Ticked here; written within 15 minutes';
+  const meta = el('div', 'wsmeta', `${it.owner || 'No owner'} · ${status}`);
+  if (ticked) { const u = el('button', 'linkbtn', 'Take back'); u.type = 'button'; u.onclick = stayWs(() => act('todo_ws_undo', {item: String(t.id), code: it.code}, 'Taking it back')); meta.append(' ', u); }
+  row.append(meta);
+  if (it.kind === 'DONE') { if (it.decides && it.decision) row.append(el('p', 'wscall', 'Call: ' + it.decision)); return row; }
+  if (it.mine && it.runnable && (it.checklist || []).length) {
+    const ul = el('ul', 'wscheck'); for (const c of it.checklist) ul.append(el('li', null, clean(c))); row.append(ul);
+  }
+  if (it.decides) {
+    const fold = document.createElement('details'); fold.className = 'wsbrief'; fold.open = it.runnable;
+    fold.append(el('summary', null, it.runnable ? 'Your call' : 'Your call, once ' + (it.waiting_on || []).join(', ') + ' is done'));
+    if (it.brief) fold.append(prose(it.brief));
+    const saved = pend[it.code + ':decide'];
+    const ta = document.createElement('textarea'); ta.rows = 3; ta.className = 'dnotesedit short'; ta.placeholder = 'Your call, in your own words';
+    ta.setAttribute('aria-label', `Your call on ${it.code}`); if (saved) ta.value = saved.text || '';
+    const b = el('button', 'secondary', saved ? 'Change call' : 'Save call'); b.type = 'button';
+    b.onclick = () => { const v = ta.value.trim(); if (!v) return; stayWs(() => act('todo_ws_decide', {item: String(t.id), code: it.code, decision: v}, 'Saving the call'))(); };
+    fold.append(ta, b);
+    if (saved) fold.append(el('p', 'dhint', 'Saved here; written to the workstream within 15 minutes.'));
+    row.append(fold);
+  } else if (it.brief && it.mine) {
+    const fold = document.createElement('details'); fold.className = 'wsbrief'; fold.append(el('summary', null, 'Brief'), prose(it.brief)); row.append(fold);
+  }
+  if (!it.mine && it.runnable && it.prompt) {
+    const cp = el('button', 'secondary small', 'Copy prompt'); cp.type = 'button';
+    cp.onclick = () => copyText(it.prompt, `Prompt for ${it.code} copied. Paste it into a Claude Code session.`);
+    row.append(cp);
+  }
+  return row;
+}
 function card(t) {
   shownIds.push(t.id);
   const li = el('li', 'kcard'); li.dataset.id = t.id; li.dataset.s = t.status; li.dataset.area = t.area;
@@ -427,14 +708,51 @@ function card(t) {
   li.setAttribute('aria-label', `${clean(t.title)}, ${t.area}, ${STATUS_WORD[t.status]}. Press for details.`);
   const row = el('div', 'crow'); const title = el('span', 'ctitle', clean(t.title)); title.title = clean(t.title);
   const grip = el('button', 'grip'); grip.type = 'button'; grip.innerHTML = SVG_GRIP; grip.setAttribute('aria-label', `Drag ${clean(t.title)} to another column or place`);
-  row.append(title, grip);
+  row.append(title);
+  if (t.status !== 'done') {   // one-click clock: start (which also marks it in progress) or pause, without opening the panel
+    const running = !!t.running_since;
+    const go = el('button', 'go cgo' + (running ? ' on' : '')); go.type = 'button'; go.innerHTML = running ? SVG_PAUSE : SVG_PLAY;
+    go.setAttribute('aria-label', running ? `Pause ${clean(t.title)}` : `Start the clock on ${clean(t.title)}`);
+    go.addEventListener('pointerdown', e => e.stopPropagation());
+    go.onclick = e => { e.stopPropagation(); running ? act('todo_pause', {item: String(t.id)}, 'Pausing') : act('todo_start', {item: String(t.id)}, 'Starting'); };
+    go.onkeydown = e => e.stopPropagation();
+    row.append(go);
+  }
+  row.append(grip);
   const meta = el('div', 'cmeta');
+  meta.append(codeLabel(t));
   const ar = el('span', 'carea'); const sw = el('span', 'sw'); sw.style.background = color(t.area); ar.append(sw, t.area); meta.append(ar);
+  meta.append(...markers(t));
+  if (t.waiting) li.classList.add('waiting');
   if (t.recurring) meta.append(el('span', 'tag', t.cadence || 'repeats'));
-  if (t.alongside) meta.append(el('span', 'tag', 'alongside'));
   if (t.running_since) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.textContent = fmtClock(Date.now() - Date.parse(t.running_since)); meta.append(c); }
   else if ((t.minutes_today || 0) >= 1) meta.append(el('span', 'mins', fmtMin(t.minutes_today)));
   li.append(row, meta);
+  const kids = boardKids[t.id] || [];
+  if (kids.length) {
+    const shut = collapsedKids.has(t.id);
+    const tog = el('button', 'ksubtoggle', `${shut ? '\u25b8' : '\u25be'} ${kids.length} sub-item${kids.length === 1 ? '' : 's'}`); tog.type = 'button';
+    tog.setAttribute('aria-expanded', String(!shut));
+    tog.onclick = e => { e.stopPropagation(); shut ? collapsedKids.delete(t.id) : collapsedKids.add(t.id); render(); };
+    li.append(tog);
+    if (!shut) {
+      const ul = el('ul', 'ksubs');
+      const addKid = (c, depth) => {
+        shownIds.push(c.id);
+        const k = el('li', 'ksub'); k.dataset.id = c.id; k.dataset.s = c.status; k.dataset.area = c.area; k.tabIndex = 0;
+        if (depth) k.style.setProperty('--depth', depth);
+        const dot = el('span', 'st mini'); dot.dataset.s = c.status;
+        k.append(dot, el('span', 'ksubtitle', clean(c.title)), codeLabel(c));
+        k.onclick = e => { e.stopPropagation(); if (suppressClick) return; openDetail(c); };
+        k.onkeydown = e => { if (e.key === 'Enter') { e.stopPropagation(); openDetail(c); } };
+        k.addEventListener('pointerdown', e => { e.stopPropagation(); if (e.pointerType !== 'mouse' || e.button === 0) startCardDrag(e, k, c, true); });
+        ul.append(k);
+        if (depth < 5) for (const g of boardKids[c.id] || []) addKid(g, depth + 1);
+      };
+      for (const c of kids) addKid(c, 0);
+      li.append(ul);
+    }
+  }
   li.onclick = e => { if (suppressClick || e.target.closest('.grip')) return; openDetail(t); };
   li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(t); } };
   grip.addEventListener('pointerdown', e => { e.stopPropagation(); startCardDrag(e, li, t, false); });
@@ -453,10 +771,11 @@ function columnAt(x, y) {
   return cols[best];
 }
 function startCardDrag(e, li, t, needMove) {
-  const x0 = e.clientX, y0 = e.clientY; let dragging = false, finished = false, ghost = null, offX = 0, offY = 0;
+  const x0 = e.clientX, y0 = e.clientY; let dragging = false, finished = false, ghost = null, offX = 0, offY = 0, nestOn = null;
   const begin = () => {
     dragging = true; suppressClick = true; busyStart();
     const r = li.getBoundingClientRect(); offX = x0 - r.left; offY = y0 - r.top;
+    if (li.classList.contains('ksub')) { li.classList.add('kcard'); li.style.setProperty('--area', color(t.area)); }
     ghost = li.cloneNode(true); ghost.classList.add('ghost'); ghost.style.width = r.width + 'px';
     ghost.style.transform = `translate(${r.left}px, ${r.top}px)`; document.body.append(ghost);
     li.classList.add('dragging');
@@ -467,11 +786,21 @@ function startCardDrag(e, li, t, needMove) {
     ev.preventDefault();
     ghost.style.transform = `translate(${ev.clientX - offX}px, ${ev.clientY - offY}px)`;
     if (ev.clientY < 60) window.scrollBy(0, -14); else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 14);
+    // Over the middle of another card: nest under it (highlighted), instead of placing between cards.
+    const over = document.elementFromPoint(ev.clientX, ev.clientY);
+    const tc = over && over.closest('.cards > .kcard');
+    let nest = null;
+    if (tc && tc !== li && !li.contains(tc)) {
+      const r = tc.getBoundingClientRect(), f = (ev.clientY - r.top) / r.height, tid = Number(tc.dataset.id);
+      if (f > 0.25 && f < 0.75 && tid !== t.id && !isUnder(tid, t.id)) nest = tc;
+    }
+    if (nest !== nestOn) { if (nestOn) nestOn.classList.remove('nest-target'); nestOn = nest; if (nest) nest.classList.add('nest-target'); }
+    if (nest) { document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target')); return; }
     const col = columnAt(ev.clientX, ev.clientY); if (!col) return;
     document.querySelectorAll('.kanban .col.target').forEach(c => { if (c !== col) c.classList.remove('target'); });
     col.classList.add('target');
     const ul = col.querySelector('.cards');
-    const next = [...ul.querySelectorAll('.kcard')].filter(c => c !== li)
+    const next = [...ul.querySelectorAll(':scope > .kcard')].filter(c => c !== li)
       .find(c => { const r = c.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
     if (li.parentElement !== ul || li.nextElementSibling !== (next || null)) ul.insertBefore(li, next || null);
     const empty = ul.querySelector('.empty'); if (empty) empty.hidden = true;
@@ -483,8 +812,10 @@ function startCardDrag(e, li, t, needMove) {
     ghost.remove(); li.classList.remove('dragging'); busyEnd();
     document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target'));
     setTimeout(() => { suppressClick = false; }, 0);
+    if (nestOn) { nestOn.classList.remove('nest-target'); await act('todo_nest', {item: String(t.id), under_item: nestOn.dataset.id}, 'Making it a sub-item'); return; }
+    if (!li.parentElement || !li.parentElement.dataset.status) { await refresh(true); return; }   // never left its parent card
     const to = li.parentElement.dataset.status;
-    const sibs = [...li.parentElement.querySelectorAll('.kcard')], i = sibs.indexOf(li);
+    const sibs = [...li.parentElement.querySelectorAll(':scope > .kcard')], i = sibs.indexOf(li);
     const after = sibs.slice(i + 1).find(c => c.dataset.area === t.area);
     const before = sibs.slice(0, i).find(c => c.dataset.area === t.area);
     await moveCard(t, t.status, to, after ? after.dataset.id : null, !after && !!before);
@@ -496,6 +827,10 @@ function startCardDrag(e, li, t, needMove) {
 async function moveCard(t, from, to, beforeId, toEnd) {
   busyStart();
   try {
+    if (t.parent_id && (boardKids[t.parent_id] || []).includes(t)) {   // a sub-item dragged out between cards or to another column comes out from under its parent
+      const r = await call('todo_unnest', {item: String(t.id)});
+      if (r && r.ok === false) { toast(r.message); return; }
+    }
     if (to !== from) {
       const item = String(t.id);
       const r = to === 'done' ? await call('todo_done', {item})
@@ -513,14 +848,20 @@ async function moveCard(t, from, to, beforeId, toEnd) {
 // ---------- drag to reorder, within an area (pointer events, so it works with touch on iPad)
 function startDrag(e, li, t) {
   e.preventDefault();
-  const ul = li.parentElement; let finished = false;
+  const ul = li.parentElement; let finished = false, nestOn = null, moved = false;
   li.classList.add('dragging'); busyStart();
+  const setNest = n => { if (n !== nestOn) { if (nestOn) nestOn.classList.remove('nest-target'); nestOn = n; if (n) n.classList.add('nest-target'); } };
   const move = ev => {
     const over = document.elementFromPoint(ev.clientX, ev.clientY);
     const target = over && over.closest('.item');
-    if (!target || target === li || target.parentElement !== ul) return;
-    const r = target.getBoundingClientRect();
-    ul.insertBefore(li, ev.clientY < r.top + r.height / 2 ? target : target.nextSibling);
+    if (!target || target === li) { setNest(null); return; }
+    const r = target.getBoundingClientRect(), f = (ev.clientY - r.top) / r.height, tid = Number(target.dataset.id);
+    // The middle of another row nests under it; the top or bottom edge places before or after it.
+    if (f > 0.3 && f < 0.7 && tid !== t.id && !isUnder(tid, t.id)) { setNest(target); return; }
+    setNest(null);
+    if (target.parentElement !== ul) return;
+    moved = true;
+    ul.insertBefore(li, f < 0.5 ? target : target.nextSibling);
   };
   // Listen on the window: moving the row in the page drops any pointer capture on the grip.
   const up = async () => {
@@ -529,6 +870,9 @@ function startDrag(e, li, t) {
     li.classList.remove('dragging');
     let n = li.nextElementSibling; while (n && !n.classList.contains('item')) n = n.nextElementSibling;
     busyEnd();
+    if (nestOn) { nestOn.classList.remove('nest-target'); await act('todo_nest', {item: String(t.id), under_item: nestOn.dataset.id}, 'Making it a sub-item'); return; }
+    if (!moved) return;
+    if (t.parent_id) { busyStart(); try { await call('todo_unnest', {item: String(t.id)}); } catch (e) { showError(e, 'Taking it out'); } finally { busyEnd(); } }
     if (n) await act('todo_move', {item: String(t.id), before_item: n.dataset.id}, 'Moving');
     else await act('todo_move', {item: String(t.id), to_end: true}, 'Moving');
   };

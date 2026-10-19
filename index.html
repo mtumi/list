@@ -6,10 +6,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://joyriilphiydaattjaga.supabase.co wss://joyriilphiydaattjaga.supabase.co; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow">
-<title>list.secretprogress.com</title>
+<title>Secret progress</title>
 <meta name="description" content="Michael's to-do list and time log.">
-<meta name="theme-color" content="#eceff3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0f1318" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#EDEFF2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0F131A" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="List">
@@ -20,7 +20,7 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -29,7 +29,7 @@
 <section class="signin" id="signin" hidden>
   <div class="card">
     <img class="mark" src="icons/icon.svg" alt="" width="56" height="56">
-    <h1>list.secretprogress.com</h1>
+    <h1>Secret progress</h1>
     <div id="step-email">
       <p class="lead">Sign in with your email and password.</p>
       <form id="emailform" autocomplete="on" novalidate>
@@ -58,7 +58,7 @@
 <!-- The list. -->
 <div class="wrap" id="app" hidden>
   <header>
-    <h1>list.secretprogress.com</h1>
+    <div class="mast"><span class="eyebrow" id="eyebrow">To-do list and time log</span><h1>Secret progress</h1></div>
     <span class="notecount" id="notecount" hidden></span>
     <span class="sync" id="sync"><i></i><span id="synctext">Connecting</span></span>
     <form class="add" id="add" autocomplete="off">
@@ -70,6 +70,7 @@
     <button type="button" class="out" id="signout" title="Sign out">Sign out</button>
   </header>
   <div id="banner" hidden></div>
+  <section class="tally" id="tally" aria-label="Counts"></section>
   <section class="band">
     <div class="panel"><div class="label">Running now</div><div class="running" id="running"><span class="idle">Nothing is running.</span></div></div>
     <div class="panel"><div class="label">Time today</div><div id="today"><span class="idle">No time logged yet today.</span></div></div>
