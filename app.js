@@ -367,6 +367,17 @@ function card(t) {
   li.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) startCardDrag(e, li, t, true); });
   return li;
 }
+// The column a drag is over: chosen by the pointer's left-right position, so a drop works at any height even
+// when the next column is shorter. When the columns are stacked (narrow screens), by the nearest one up or down.
+function columnAt(x, y) {
+  const cols = [...document.querySelectorAll('.kanban .col')]; if (!cols.length) return null;
+  const rects = cols.map(c => c.getBoundingClientRect());
+  const sideBySide = rects.length > 1 && Math.abs(rects[0].left - rects[1].left) > 20;
+  const dist = (r) => sideBySide ? (x < r.left ? r.left - x : x > r.right ? x - r.right : 0)
+                                 : (y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0);
+  let best = 0; rects.forEach((r, i) => { if (dist(r) < dist(rects[best])) best = i; });
+  return cols[best];
+}
 function startCardDrag(e, li, t, needMove) {
   const x0 = e.clientX, y0 = e.clientY; let dragging = false, finished = false, ghost = null, offX = 0, offY = 0;
   const begin = () => {
@@ -382,8 +393,9 @@ function startCardDrag(e, li, t, needMove) {
     ev.preventDefault();
     ghost.style.transform = `translate(${ev.clientX - offX}px, ${ev.clientY - offY}px)`;
     if (ev.clientY < 60) window.scrollBy(0, -14); else if (ev.clientY > innerHeight - 60) window.scrollBy(0, 14);
-    const over = document.elementFromPoint(ev.clientX, ev.clientY);
-    const col = over && over.closest('.col'); if (!col) return;
+    const col = columnAt(ev.clientX, ev.clientY); if (!col) return;
+    document.querySelectorAll('.kanban .col.target').forEach(c => { if (c !== col) c.classList.remove('target'); });
+    col.classList.add('target');
     const ul = col.querySelector('.cards');
     const next = [...ul.querySelectorAll('.kcard')].filter(c => c !== li)
       .find(c => { const r = c.getBoundingClientRect(); return ev.clientY < r.top + r.height / 2; });
@@ -393,8 +405,9 @@ function startCardDrag(e, li, t, needMove) {
   const up = async () => {
     if (finished) return; finished = true;
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
-    if (!dragging) return;   // a tap: the click handler cycles the status
+    if (!dragging) return;   // a tap: the click handler opens the details
     ghost.remove(); li.classList.remove('dragging'); busyEnd();
+    document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target'));
     setTimeout(() => { suppressClick = false; }, 0);
     const to = li.parentElement.dataset.status;
     const sibs = [...li.parentElement.querySelectorAll('.kcard')], i = sibs.indexOf(li);
