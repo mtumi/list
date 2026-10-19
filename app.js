@@ -343,7 +343,12 @@ function openDetail(t) {
   if (t.show_from) inp.value = t.show_from;
   const hb = el('button', 'secondary', 'Hide'); hb.type = 'button';
   hb.onclick = async () => { if (!inp.value) return; d.close(); await act('todo_hide_until', {item: String(t.id), until: inp.value}, 'Hiding'); };
-  hide.append(lab, inp, hb); body.append(hide);
+  const quick = (label, days) => { const b = el('button', 'secondary', label); b.type = 'button';
+    b.onclick = () => { const d0 = new Date(); d0.setDate(d0.getDate() + days); inp.value = d0.toLocaleDateString('en-CA'); hb.click(); }; return b; };
+  hide.append(lab, inp, hb, quick('Tomorrow', 1), quick('Next week', 7)); body.append(hide);
+  const rm = el('button', 'link danger', 'Remove from the list'); rm.type = 'button';
+  rm.onclick = async () => { if (!confirm('Remove "' + clean(t.title) + '" from the list?')) return; d.close(); await act('todo_remove', {item: String(t.id)}, 'Removing'); };
+  body.append(rm);
   d.showModal();
 }
 function card(t) {
