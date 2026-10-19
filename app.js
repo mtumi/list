@@ -237,6 +237,10 @@ function renameInline(span, t) {
   inp.onclick = e => e.stopPropagation(); inp.onpointerdown = e => e.stopPropagation();
   inp.onblur = () => finish(true);
 }
+// Earlier stretches today for an item, so a running clock shows the day's total rather than only the current stretch.
+function earlierMs(itemId, since) { const it = itemById(itemId); if (!it || !since) return 0;
+  return Math.max(0, (it.minutes_today || 0) * 60000 - Math.max(0, fetchedAt - Date.parse(since))); }
+const tick = (c) => { c.textContent = fmtClock(Date.now() - Date.parse(c.dataset.since) + (+c.dataset.base || 0)); };
 function itemRow(t, depth = 0) {
   shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;
@@ -255,7 +259,7 @@ function itemRow(t, depth = 0) {
   const running = !!t.running_since;
   const mins = (t.minutes_today || 0) + (running ? (Date.now() - fetchedAt) / 60000 : 0);
   if (mins >= 1 && !running) li.append(el('span', 'mins', fmtMin(mins)));
-  if (running) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.textContent = fmtClock(Date.now() - Date.parse(t.running_since)); li.append(c); }
+  if (running) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.dataset.base = earlierMs(t.id, t.running_since); tick(c); li.append(c); }
   const go = el('button', 'go' + (running ? ' on' : '')); go.type = 'button';
   go.innerHTML = running ? SVG_PAUSE : SVG_PLAY;
   go.setAttribute('aria-label', running ? `Pause ${clean(t.title)}` : `Start the clock on ${clean(t.title)}`);
@@ -315,7 +319,7 @@ function renderRunning() {
   for (const r of runs) {
     const row = el('div', 'run'); row.append(el('span', 'dot'), el('span', 'what', clean(r.what)));
     if (r.alongside) row.append(el('span', 'tag bg', 'bg'));
-    const c = el('span', 'clock'); c.dataset.since = r.started_at; c.textContent = fmtClock(Date.now() - Date.parse(r.started_at)); row.append(c);
+    const c = el('span', 'clock'); c.dataset.since = r.started_at; c.dataset.base = r.item ? earlierMs(r.item, r.started_at) : 0; tick(c); row.append(c);
     const p = el('button', 'btn', 'Pause'); p.type = 'button';
     p.onclick = () => act('todo_pause', r.item ? {item: String(r.item)} : {}, 'Pausing');
     row.append(p); box.append(row);
@@ -800,7 +804,7 @@ function card(t) {
   meta.append(...markers(t));
   if (t.waiting) li.classList.add('waiting');
   if (t.recurring) meta.append(el('span', 'tag', t.cadence || 'repeats'));
-  if (t.running_since) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.textContent = fmtClock(Date.now() - Date.parse(t.running_since)); meta.append(c); }
+  if (t.running_since) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.dataset.base = earlierMs(t.id, t.running_since); tick(c); meta.append(c); }
   else if ((t.minutes_today || 0) >= 1) meta.append(el('span', 'mins', fmtMin(t.minutes_today)));
   li.append(row, meta);
   const kids = boardKids[t.id] || [];
@@ -1054,7 +1058,7 @@ $('add').addEventListener('submit', async e => {
   await act('todo_add', {area: $('addarea').value, what: text}, 'Adding');
 });
 setInterval(() => {
-  for (const c of document.querySelectorAll('[data-since]')) c.textContent = fmtClock(Date.now() - Date.parse(c.dataset.since));
+  for (const c of document.querySelectorAll('[data-since]')) tick(c);
   if (lastOk && started) setSync();
 }, 1000);
 setInterval(() => { if (data && started && !isBusy()) renderToday(); }, 60000);
