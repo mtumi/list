@@ -278,8 +278,8 @@ function renderTime(main) {
 // ---------- the board: To do, In progress, Done
 // One card per item: title, area, live clock, repeating and alongside markers. Tap a card for its details;
 // status changes only by a drag or the panel's buttons. Drag by the grip (touch) or anywhere on the card (mouse) to another column to change
-// status, or within a column to reorder. Into In progress starts the clock (todo_start, which pauses the main
-// running item unless this one runs alongside); out of it stops the clock; into Done is todo_done.
+// status, or within a column to reorder. In progress means planned for today: moving a card there does not
+// start the clock (only Start does); moving it out stops a running clock; into Done is todo_done.
 let showOlderDone = false, suppressClick = false;
 const STATUS_WORD = {todo:'to do', doing:'in progress', done:'done'};
 function renderBoard(main) {
@@ -424,11 +424,9 @@ async function moveCard(t, from, to, beforeId, toEnd) {
   try {
     if (to !== from) {
       const item = String(t.id);
-      const r = to === 'doing' ? await call('todo_start', {item})
-              : to === 'done' ? await call('todo_done', {item})
-              : await call('todo_status', {item, status: 'todo'});
+      const r = to === 'done' ? await call('todo_done', {item})
+              : await call('todo_status', {item, status: to});
       if (r && r.ok === false) { toast(r.message); return; }
-      if (r && r.message && to === 'doing') toast(r.message);
     }
     if (to !== 'done' && (beforeId || toEnd)) {
       const r = await call('todo_move', beforeId ? {item: String(t.id), before_item: beforeId} : {item: String(t.id), to_end: true});
