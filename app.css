@@ -171,3 +171,15 @@ form.add button{padding:8px 14px;border:0;border-radius:8px;background:var(--acc
 dialog.card{margin:auto;border:1px solid var(--line);color:var(--ink)}
 dialog.card::backdrop{background:rgba(0,0,0,.45)}
 dialog.card h2{font:700 1.2rem var(--display);margin:0 0 4px}
+dialog.detail{width:min(520px,calc(100% - 32px))}
+dialog.detail h2{font:700 1.25rem/1.25 var(--display);margin:2px 0 6px}
+dialog.detail .dmeta{font-size:.8rem;color:var(--muted)}
+dialog.detail .dnotes{margin:0;white-space:pre-wrap;line-height:1.45}
+dialog.detail .dnotes a{color:var(--accent)}
+dialog.detail .dfacts{margin:0;font-size:.85rem;color:var(--muted)}
+dialog.detail .dbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+dialog.detail .dbar button,dialog.detail .dhide button,#itemclose{padding:9px 14px;border-radius:9px;border:0;background:var(--accent);color:var(--surface);font-weight:700}
+dialog.detail button.secondary,#itemclose{background:transparent;color:var(--accent);border:1px solid var(--line)}
+dialog.detail .dhide{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+dialog.detail .dhide label{font:700 .68rem var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+dialog.detail .dhide input{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}

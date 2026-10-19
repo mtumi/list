@@ -276,7 +276,7 @@ function renderTime(main) {
 }
 
 // ---------- the board: To do, In progress, Done
-// One card per item: title, area, live clock, repeating and alongside markers. Tap a card to cycle its
+// One card per item: title, area, live clock, repeating and alongside markers. Tap a card for its details;
 // status as in the list. Drag by the grip (touch) or anywhere on the card (mouse) to another column to change
 // status, or within a column to reorder. Into In progress starts the clock (todo_start, which pauses the main
 // running item unless this one runs alongside); out of it stops the clock; into Done is todo_done.
@@ -309,11 +309,48 @@ function renderBoard(main) {
   }
   main.append(wrap);
 }
+// Details for one item, opened by tapping a board card. Status changes only from these buttons or a drag.
+function linkified(text) {
+  const frag = document.createDocumentFragment();
+  String(text || '').split(/(https?:\/\/[^\s)]+)/g).forEach((part, i) => {
+    if (i % 2) { const a = document.createElement('a'); a.href = part.replace(/[.,;]+$/, ''); a.target = '_blank'; a.rel = 'noopener'; a.textContent = part.includes('docs.google.com/spreadsheets') ? 'Open the song list' : part.replace(/^https?:\/\//, '').slice(0, 60); frag.append(a); }
+    else if (part) frag.append(document.createTextNode(part));
+  });
+  return frag;
+}
+function openDetail(t) {
+  const d = $('itemdialog'), body = $('itembody'); body.textContent = '';
+  body.append(el('div', 'dmeta', [t.area, t.group ? clean(t.group) : '', STATUS_WORD[t.status]].filter(Boolean).join(' · ')));
+  body.append(el('h2', null, clean(t.title)));
+  if (t.notes) { const n = el('p', 'dnotes'); n.append(linkified(clean(t.notes))); body.append(n); }
+  const facts = [];
+  if (t.recurring) facts.push('Repeats: ' + (t.cadence || 'yes'));
+  if (t.alongside) facts.push('Can run alongside other work');
+  if (t.show_from) facts.push('Hidden until ' + t.show_from);
+  const mins = (t.minutes_today || 0);
+  if (t.running_since) facts.push('Clock running since ' + new Date(t.running_since).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}));
+  else if (mins >= 1) facts.push('Today: ' + fmtMin(mins));
+  if (facts.length) body.append(el('p', 'dfacts', facts.join(' · ')));
+  const bar = el('div', 'dbar');
+  const btn = (label, cls, run) => { const b = el('button', cls, label); b.type = 'button'; b.onclick = async () => { d.close(); await run(); }; bar.append(b); };
+  if (t.running_since) btn('Pause clock', 'secondary', () => act('todo_pause', {item: String(t.id)}, 'Pausing'));
+  else if (t.status !== 'done') btn('Start clock', 'secondary', () => act('todo_start', {item: String(t.id)}, 'Starting'));
+  if (t.status !== 'done') btn('Mark done', '', () => act('todo_done', {item: String(t.id)}, 'Marking done', () => { t.status = 'done'; }));
+  else btn('Reopen', 'secondary', () => act('todo_status', {item: String(t.id), status: 'todo'}, 'Reopening', () => { t.status = 'todo'; }));
+  body.append(bar);
+  const hide = el('div', 'dhide');
+  const lab = el('label', null, 'Hide until'); const inp = document.createElement('input'); inp.type = 'date'; inp.id = 'hideuntil'; lab.htmlFor = 'hideuntil';
+  if (t.show_from) inp.value = t.show_from;
+  const hb = el('button', 'secondary', 'Hide'); hb.type = 'button';
+  hb.onclick = async () => { if (!inp.value) return; d.close(); await act('todo_hide_until', {item: String(t.id), until: inp.value}, 'Hiding'); };
+  hide.append(lab, inp, hb); body.append(hide);
+  d.showModal();
+}
 function card(t) {
   const li = el('li', 'kcard'); li.dataset.id = t.id; li.dataset.s = t.status; li.dataset.area = t.area;
   li.style.setProperty('--area', color(t.area)); li.tabIndex = 0;
   const next = {todo:'doing', doing:'done', done:'todo'}[t.status];
-  li.setAttribute('aria-label', `${clean(t.title)}, ${t.area}, ${STATUS_WORD[t.status]}. Press to mark ${STATUS_WORD[next]}.`);
+  li.setAttribute('aria-label', `${clean(t.title)}, ${t.area}, ${STATUS_WORD[t.status]}. Press for details.`);
   const row = el('div', 'crow'); const title = el('span', 'ctitle', clean(t.title)); title.title = clean(t.title);
   const grip = el('button', 'grip'); grip.type = 'button'; grip.innerHTML = SVG_GRIP; grip.setAttribute('aria-label', `Drag ${clean(t.title)} to another column or place`);
   row.append(title, grip);
@@ -324,9 +361,8 @@ function card(t) {
   if (t.running_since) { const c = el('span', 'mins'); c.dataset.since = t.running_since; c.textContent = fmtClock(Date.now() - Date.parse(t.running_since)); meta.append(c); }
   else if ((t.minutes_today || 0) >= 1) meta.append(el('span', 'mins', fmtMin(t.minutes_today)));
   li.append(row, meta);
-  const cycle = () => act('todo_status', {item: String(t.id), status: next}, 'Changing status', () => { t.status = next; });
-  li.onclick = e => { if (suppressClick || e.target.closest('.grip')) return; cycle(); };
-  li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycle(); } };
+  li.onclick = e => { if (suppressClick || e.target.closest('.grip')) return; openDetail(t); };
+  li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(t); } };
   grip.addEventListener('pointerdown', e => { e.stopPropagation(); startCardDrag(e, li, t, false); });
   li.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' && e.button === 0) startCardDrag(e, li, t, true); });
   return li;
@@ -437,6 +473,8 @@ async function passwordSignIn() {
 $('emailform').addEventListener('submit', e => { e.preventDefault(); passwordSignIn(); });
 $('changepw').onclick = () => { $('newpw').value = ''; $('newpw2').value = ''; $('pwstatus').textContent = ''; $('pwdialog').showModal(); setTimeout(() => $('newpw').focus(), 50); };
 $('pwcancel').onclick = () => $('pwdialog').close();
+$('itemclose').onclick = () => $('itemdialog').close();
+$('itemdialog').addEventListener('click', e => { if (e.target === $('itemdialog')) $('itemdialog').close(); });
 $('pwform').addEventListener('submit', async e => {
   e.preventDefault();
   const a = $('newpw').value, b = $('newpw2').value, st = $('pwstatus');
