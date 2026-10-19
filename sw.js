@@ -1,6 +1,6 @@
 // Keeps the page's own files so the installed app opens quickly. Network first, so a new version shows
 // on the next open; the cache is only a fallback. Requests to Supabase are never touched or stored.
-const CACHE = 'list-shell-v18';
+const CACHE = 'list-shell-v19';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'look.js', 'config.js', 'vendor/supabase-js-2.49.4.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -15,7 +15,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
   e.respondWith(
-    fetch(e.request).then(res => {
+    // no-cache: always ask the server whether the file changed (cheap with ETags), so a new version shows at once.
+    fetch(e.request.mode === 'navigate' ? e.request : new Request(e.request, {cache: 'no-cache'})).then(res => {
       if (res.ok && !url.search) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(e.request, copy)); }
       return res;
     }).catch(() => caches.match(e.request, {ignoreSearch: true}).then(r => r || caches.match('index.html')))
