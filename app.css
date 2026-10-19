@@ -398,3 +398,43 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 .tag.bg{background:var(--sunken);color:var(--muted);border-style:dashed;text-transform:none;letter-spacing:.04em}
 .spbody .dcheck{display:flex;align-items:flex-start;gap:8px;font-size:.88rem;color:var(--ink-2)}
 .spbody .dcheck input{margin-top:3px;accent-color:var(--accent)}
+/* ---------- information hierarchy (Michael, 2026-10-19: "everything is equally screaming at me in high contrast
+   white"). One primary level: page title, column and area headings, running clocks. Titles regular weight in a
+   softened ink; metadata small and faint; done items recede; surfaces separate cards by tone, not outlines. */
+:root{--title-ink:#2A323C}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--title-ink:#D6DBE2}}
+:root[data-theme="dark"]{--title-ink:#D6DBE2}
+.title,.ctitle,.ksub .ksubtitle,.spbody .dsubtitle,.spbody .wsname{color:var(--title-ink);font-weight:400}
+.item[data-s="doing"] .title,.kcard[data-s="doing"] .ctitle{font-weight:400}
+.kcard[data-s="doing"]{box-shadow:inset 0 2px 0 var(--you),var(--shadow)}
+.item[data-s="doing"]{box-shadow:inset 2px 0 0 var(--you)}
+.cmeta,.carea{color:var(--faint);font-size:.7rem}
+.tag,.cid,.spbody .wscode{background:transparent;border:1px solid var(--line);color:var(--faint);opacity:1}
+.tag.claude{background:transparent;color:var(--work);border-color:var(--line)}
+.tag.call{background:transparent;color:var(--you);border-color:var(--line)}
+.tag.bg{background:transparent;border-style:dashed}
+.mins{color:var(--faint)}
+.mins[data-since]{color:var(--run)}
+.kcard[data-s="done"],.item[data-s="done"]{opacity:.62}
+.kcard[data-s="done"] .ctitle,.item[data-s="done"] .title,.ksub[data-s="done"] .ksubtitle{color:var(--faint);text-decoration-color:var(--line)}
+.col,.area{background:var(--surface);border-color:var(--line-soft)}
+.kcard{background:var(--raised);border-color:var(--line-soft);border-left-width:3px}
+.kcard:hover{border-color:var(--line);border-left-color:var(--area,var(--a0))}
+.kcard[data-s="done"]{background:transparent;box-shadow:none}
+.stat{background:var(--surface);border-color:var(--line-soft)}
+.stat .n{font-weight:500;font-size:1.05rem;color:var(--ink-2)}
+.stat .l{font:500 .6rem var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.panel{border-color:var(--line-soft)}
+.label{color:var(--faint)}
+.run .what{color:var(--ink);font-weight:600}
+.idle,.legend{color:var(--faint)}
+.legend b{color:var(--ink-2);font-weight:500}
+.chip{background:transparent;color:var(--muted);border-color:var(--line-soft)}
+.chip[aria-pressed="true"]{background:var(--raised);color:var(--ink);border-color:var(--muted)}
+.seg,.seg button{border-color:var(--line-soft)}
+.seg button{background:transparent;color:var(--muted)}
+.out{background:transparent;color:var(--faint);border-color:var(--line-soft)}
+.group{color:var(--faint)}
+.area h2 .n,.col h2 .n{color:var(--faint)}
+.go{color:var(--faint)}
+.st{border-color:var(--line)}
