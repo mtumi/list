@@ -439,6 +439,14 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 .go{color:var(--faint)}
 .st{border-color:var(--line)}
 
+
+/* Dark is always the Workstream look, whatever the device setting. */
+:root[data-look="workstream"]{
+  --bg:#0F131A; --surface:#161C24; --raised:#1B222B; --sunken:#12171E; --ink:#E5E9EE; --ink-2:#BCC5D0; --muted:#8F99A7; --faint:#6B7583;
+  --line:#28313D; --line-soft:#222A34; --accent:#54ADA5; --accent-soft:#17332F; --you:#C99C4C; --you-soft:#33280F;
+  --work:#83A5C9; --work-soft:#1A2735; --run:#C99C4C; --run-soft:#33280F; --done:#54ADA5; --warn:#DC7660; --warn-soft:#3A1F19;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 3px 12px rgba(0,0,0,.25);
+  --a1:#83A5C9; --a2:#B994D8; --a3:#54ADA5; --a4:#8CC26A; --a5:#8F99A7; --a6:#D99A5E; --a0:#6B7583; color-scheme:dark}
 /* ---------- Field notebook look (Michael, 2026-10-19: "can I have the option to toggle between workstream and field
    notebook?"). Light paper on cool grey, navy ink, a red pen mark on what is in progress, ruled cards. Light only:
    these come last and match the dark blocks' specificity, so they win in either system theme. ---------- */
