@@ -721,16 +721,28 @@ function openMenu(t, x, y) {
     b.onclick = async () => { closeMenu(); await run(); }; m.append(b); return b; };
   const sep = () => m.append(el('div', 'cmsep'));
   const id = String(t.id);
-  item('Open details', () => openDetail(t));
-  sep();
-  if (t.status !== 'done') item('Mark done', () => act('todo_done', {item: id}, 'Marking done', () => { t.status = 'done'; }));
+  const inline = (btn, kind) => {
+    m.querySelectorAll('.cmform').forEach(x => x.remove());
+    const f = el('form', 'cmform'); const box = document.createElement(kind === 'rename' ? 'input' : 'textarea');
+    box.className = 'cminput'; if (kind === 'rename') box.value = t.title || ''; else { box.rows = 3; box.placeholder = 'Note for Claude, for example: split this into two'; }
+    const go = el('button', 'cmsave', kind === 'rename' ? 'Save name' : 'Save note'); go.type = 'submit';
+    f.append(box, go); btn.after(f); box.focus(); if (kind === 'rename') box.select();
+    f.onsubmit = async e => { e.preventDefault(); const v = box.value.trim(); if (!v) return; closeMenu();
+      if (kind === 'rename') { if (v !== t.title) await act('todo_edit', {item: id, title: v}, 'Renaming'); }
+      else await act('todo_note_add', {item: id, note: v}, 'Saving the note'); };
+    box.onkeydown = e => { if (e.key === 'Enter' && (kind === 'rename' || e.metaKey || e.ctrlKey)) { e.preventDefault(); f.requestSubmit(); } if (e.key === 'Escape') closeMenu(); };
+  };
+  const rn = item('Rename', () => {}); rn.onclick = e => { e.stopPropagation(); inline(rn, 'rename'); };
+  const nt = item('Note for Claude…', () => {}); nt.onclick = e => { e.stopPropagation(); inline(nt, 'note'); };
   const plus = n => { const d0 = new Date(); d0.setDate(d0.getDate() + n); return d0.toLocaleDateString('en-CA'); };
   item('Hide until tomorrow', () => act('todo_hide_until', {item: id, until: plus(1)}, 'Hiding'));
   item('Hide for 2 days', () => act('todo_hide_until', {item: id, until: plus(2)}, 'Hiding'));
   item('Hide for a week', () => act('todo_hide_until', {item: id, until: plus(7)}, 'Hiding'));
-  sep();
-  if (t.code) item('Copy code ' + t.code, async () => { try { await navigator.clipboard.writeText(t.code); toast('Copied ' + t.code); } catch (e) { toast(t.code); } });
   item('Delete', () => act('todo_remove', {item: id}, 'Deleting'), 'danger');
+  sep();
+  if (t.status !== 'done') item('Mark done', () => act('todo_done', {item: id}, 'Marking done', () => { t.status = 'done'; }));
+  item('Open details', () => openDetail(t));
+  if (t.code) item('Copy code ' + t.code, async () => { try { await navigator.clipboard.writeText(t.code); toast('Copied ' + t.code); } catch (e) { toast(t.code); } });
   document.body.append(m);
   const r = m.getBoundingClientRect();
   m.style.left = Math.max(8, Math.min(x, innerWidth - r.width - 8)) + 'px';

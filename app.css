@@ -483,3 +483,6 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 .ctxmenu .cmsub{display:flex;flex-direction:column;margin:2px 0 4px 10px;padding-left:6px;border-left:1px solid var(--line)}
 .ctxmenu .cmsub .cmitem{font-size:.84rem;padding:5px 8px}
 .ctxmenu .cmempty{font-size:.82rem;color:var(--faint);padding:5px 8px}
+.ctxmenu .cmform{display:flex;flex-direction:column;gap:6px;padding:4px 8px 8px}
+.ctxmenu .cminput{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit;font-size:.88rem;resize:vertical}
+.ctxmenu .cmsave{align-self:flex-start;padding:5px 11px;border:0;border-radius:7px;background:var(--accent);color:var(--surface);font-size:.8rem;font-weight:700}
