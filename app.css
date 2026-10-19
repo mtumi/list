@@ -486,3 +486,4 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 .ctxmenu .cmform{display:flex;flex-direction:column;gap:6px;padding:4px 8px 8px}
 .ctxmenu .cminput{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit;font-size:.88rem;resize:vertical}
 .ctxmenu .cmsave{align-self:flex-start;padding:5px 11px;border:0;border-radius:7px;background:var(--accent);color:var(--surface);font-size:.8rem;font-weight:700}
+input.rename{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--accent);border-radius:5px;padding:1px 5px}

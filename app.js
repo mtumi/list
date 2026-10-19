@@ -221,6 +221,22 @@ function render() {
   if (!board.children.length) board.append(el('div', 'empty', 'Nothing in progress right now.'));
   main.append(board);
 }
+
+// A single click opens the details after a short pause, so a double click can rename the title in place instead.
+let clickTimer = null;
+function clickOpen(t) { clearTimeout(clickTimer); clickTimer = setTimeout(() => openDetail(t), 240); }
+function renameInline(span, t) {
+  clearTimeout(clickTimer); if (span.querySelector('input')) return;
+  const inp = document.createElement('input'); inp.className = 'rename'; inp.value = t.title || ''; inp.setAttribute('aria-label', 'Rename');
+  span.replaceChildren(inp); inp.focus(); inp.select();
+  let done = false;
+  const finish = async save => { if (done) return; done = true; const v = inp.value.trim();
+    if (save && v && v !== t.title) { span.textContent = v; await act('todo_edit', {item: String(t.id), title: v}, 'Renaming', () => { t.title = v; }); }
+    else span.textContent = clean(t.title); };
+  inp.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); finish(true); } if (e.key === 'Escape') finish(false); };
+  inp.onclick = e => e.stopPropagation(); inp.onpointerdown = e => e.stopPropagation();
+  inp.onblur = () => finish(true);
+}
 function itemRow(t, depth = 0) {
   shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;
@@ -230,7 +246,7 @@ function itemRow(t, depth = 0) {
   st.setAttribute('aria-label', `${clean(t.title)}: ${t.status === 'doing' ? 'in progress' : t.status === 'todo' ? 'to do' : 'done'}. Tap to mark ${next === 'doing' ? 'in progress' : next === 'todo' ? 'to do' : 'done'}.`);
   st.onclick = () => act('todo_status', {item: String(t.id), status: next}, 'Changing status', () => { t.status = next; });
   const title = el('span', 'title' + (t.notes ? ' has-notes' : ''), clean(t.title)); title.title = clean(t.title); title.tabIndex = 0;
-  title.onclick = () => openDetail(t); title.onkeydown = e => { if (e.key === 'Enter') openDetail(t); };
+  title.onclick = () => clickOpen(t); title.ondblclick = e => { e.stopPropagation(); renameInline(title, t); }; title.onkeydown = e => { if (e.key === 'Enter') openDetail(t); };
   attachMenu(li, t);
   li.append(st, title);
   if (t.waiting) li.classList.add('waiting');
@@ -812,7 +828,8 @@ function card(t) {
       li.append(ul);
     }
   }
-  li.onclick = e => { if (suppressClick || e.target.closest('.grip')) return; openDetail(t); };
+  li.onclick = e => { if (suppressClick || e.target.closest('.grip') || e.target.closest('.rename')) return; clickOpen(t); };
+  title.ondblclick = e => { e.stopPropagation(); renameInline(title, t); };
   attachMenu(li, t);
   li.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(t); } };
   grip.addEventListener('pointerdown', e => { e.stopPropagation(); startCardDrag(e, li, t, false); });
