@@ -451,6 +451,17 @@ $('codeform').addEventListener('submit', async e => {
   else signinStatus('Signed in.', 'good');
 });
 $('again').onclick = () => sentTo && sendLink(sentTo);
+$('pwbtn').onclick = async () => {
+  const email = $('email').value.trim().toLowerCase(), password = $('password').value;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { signinStatus('Type a whole email address.', 'err'); return; }
+  if (!password) { signinStatus('Type your password.', 'err'); $('password').focus(); return; }
+  $('pwbtn').disabled = true; signinStatus('Signing in.');
+  const {error} = await sb.auth.signInWithPassword({email, password});
+  $('pwbtn').disabled = false;
+  if (error) signinStatus(/invalid login/i.test(error.message || '') ? 'Wrong email or password.' : explainAuthError(error), 'err');
+  else { signinStatus('Signed in.', 'good'); try { localStorage.setItem('list-last-email', email); } catch (e) { /* private mode */ } }
+};
+$('password').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $('pwbtn').click(); } });
 $('havecode').onclick = () => {
   let email = $('email').value.trim().toLowerCase();
   if (!email) { try { email = localStorage.getItem('list-last-email') || ''; } catch (e) { /* private mode */ } }

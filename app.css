@@ -160,6 +160,7 @@ form.add button{padding:8px 14px;border:0;border-radius:8px;background:var(--acc
 .card #code{font:500 1.3rem var(--mono);letter-spacing:.25em}
 .card form button,#deniedout{padding:11px 14px;border:0;border-radius:9px;background:var(--accent);color:var(--surface);font-weight:700}
 .card form button:disabled{opacity:.6;cursor:default}
+.card form button.secondary{background:transparent;color:var(--accent);border:1px solid var(--line)}
 .card .small{margin:0;font-size:.85rem;color:var(--muted)}
 .link{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;text-underline-offset:2px}
 .status{margin:0;min-height:1.4em;font-size:.9rem;color:var(--muted)}

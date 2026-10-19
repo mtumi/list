@@ -31,11 +31,14 @@
     <img class="mark" src="icons/icon.svg" alt="" width="56" height="56">
     <h1>list.secretprogress.com</h1>
     <div id="step-email">
-      <p class="lead">Sign in with your email. You get a link and a code; no password.</p>
+      <p class="lead">Sign in with your email and password, or have a link sent to you.</p>
       <form id="emailform" autocomplete="on" novalidate>
         <label for="email">Email</label>
         <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required>
-        <button type="submit" id="sendbtn">Send me a link</button>
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password">
+        <button type="button" id="pwbtn">Sign in</button>
+        <button type="submit" id="sendbtn" class="secondary">Or send me a link</button>
       </form>
       <p class="small"><button type="button" class="link" id="havecode">I have a code</button></p>
     </div>
