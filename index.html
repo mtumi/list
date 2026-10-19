@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://joyriilphiydaattjaga.supabase.co wss://joyriilphiydaattjaga.supabase.co; img-src 'self' data:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>list.secretprogress.com</title>
+<meta name="description" content="Michael's to-do list and time log.">
+<meta name="theme-color" content="#eceff3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1318" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="List">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- Sign-in: shown until a session exists. -->
+<section class="signin" id="signin" hidden>
+  <div class="card">
+    <img class="mark" src="icons/icon.svg" alt="" width="56" height="56">
+    <h1>list.secretprogress.com</h1>
+    <div id="step-email">
+      <p class="lead">Sign in with your email. You get a link and a code; no password.</p>
+      <form id="emailform" autocomplete="on" novalidate>
+        <label for="email">Email</label>
+        <input id="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required>
+        <button type="submit" id="sendbtn">Send me a link</button>
+      </form>
+    </div>
+    <div id="step-code" hidden>
+      <p class="lead">Check your email at <b id="sentto"></b>. Open the link on this device, or type the code from the email here.</p>
+      <form id="codeform" autocomplete="off" novalidate>
+        <label for="code">Code from the email</label>
+        <input id="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="10" spellcheck="false">
+        <button type="submit" id="codebtn">Sign in</button>
+      </form>
+      <p class="small"><button type="button" class="link" id="again">Send another</button> · <button type="button" class="link" id="other">Use a different email</button></p>
+    </div>
+    <p class="status" id="signinstatus" role="status" aria-live="polite"></p>
+  </div>
+</section>
+
+<!-- Signed in but not the allowed address. -->
+<section class="signin" id="denied" hidden>
+  <div class="card">
+    <img class="mark" src="icons/icon.svg" alt="" width="56" height="56">
+    <h1>Not this address</h1>
+    <p class="lead">You are signed in as <b id="deniedas"></b>, which cannot see this list.</p>
+    <button type="button" id="deniedout">Sign out</button>
+  </div>
+</section>
+
+<!-- The list. -->
+<div class="wrap" id="app" hidden>
+  <header>
+    <h1>list.secretprogress.com</h1>
+    <span class="sync" id="sync"><i></i><span id="synctext">Connecting</span></span>
+    <form class="add" id="add" autocomplete="off">
+      <input id="addtext" placeholder="Add an item" aria-label="New item">
+      <select id="addarea" aria-label="Area"></select>
+      <button type="submit">Add</button>
+    </form>
+    <button type="button" class="out" id="signout" title="Sign out">Sign out</button>
+  </header>
+  <div id="banner" hidden></div>
+  <section class="band">
+    <div class="panel"><div class="label">Running now</div><div class="running" id="running"><span class="idle">Nothing is running.</span></div></div>
+    <div class="panel"><div class="label">Time today</div><div id="today"><span class="idle">No time logged yet today.</span></div></div>
+  </section>
+  <nav class="filters" aria-label="What to show">
+    <div class="chips" id="chips"></div>
+    <div class="seg mode" id="modeseg" aria-label="Layout">
+      <button type="button" data-mode="list">List</button>
+      <button type="button" data-mode="board">Board</button>
+    </div>
+    <div class="seg" id="seg">
+      <button type="button" data-status="open">Open</button>
+      <button type="button" data-status="doing">In progress</button>
+      <button type="button" data-status="all">With done</button>
+      <button type="button" data-status="time">Time log</button>
+    </div>
+  </nav>
+  <div class="viewnote" id="viewnote"></div>
+  <main id="main"><div class="loading">Loading your list.</div></main>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="config.js"></script>
+<script src="vendor/supabase-js-2.49.4.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

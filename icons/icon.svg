@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Three lines of the list, one per status: done, in progress, to do. -->
+  <rect width="512" height="512" rx="112" fill="#17202b"/>
+  <circle cx="150" cy="160" r="34" fill="#5fc795"/>
+  <path d="M134 160l11 12 22-25" fill="none" stroke="#17202b" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="210" y="148" width="180" height="24" rx="12" fill="#6d7886"/>
+  <circle cx="150" cy="256" r="29" fill="none" stroke="#f2a93b" stroke-width="10"/>
+  <path d="M150 227a29 29 0 0 0 0 58z" fill="#f2a93b"/>
+  <rect x="210" y="244" width="200" height="24" rx="12" fill="#e3e8ee"/>
+  <circle cx="150" cy="352" r="29" fill="none" stroke="#8eaefc" stroke-width="10"/>
+  <rect x="210" y="340" width="150" height="24" rx="12" fill="#e3e8ee"/>
+</svg>
