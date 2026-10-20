@@ -269,6 +269,12 @@ function renderStrip() {
 }
 $('menubtn').onclick = e => { e.stopPropagation(); const m = $('hmenu'); m.hidden = !m.hidden; $('menubtn').setAttribute('aria-expanded', String(!m.hidden)); };
 document.addEventListener('click', e => { if (!e.target.closest('.hmenuwrap')) { $('hmenu').hidden = true; $('menubtn').setAttribute('aria-expanded', 'false'); } });
+// Dropping a card onto another turns it into a step of that card (Michael, 2026-10-20: "make drops create steps").
+async function dropAsStep(t, targetId) {
+  if (String(t.id) === String(targetId)) return;
+  const r = await act('todo_step_add', {item: String(targetId), step: clean(t.title)}, 'Adding it as a step');
+  if (r && r.ok !== false) await act('todo_remove', {item: String(t.id)}, 'Removing the card');
+}
 function itemRow(t, depth = 0) {
   shownIds.push(t.id);
   const li = el('li', 'item'); li.dataset.id = t.id; li.dataset.s = t.status;
@@ -921,7 +927,7 @@ function startCardDrag(e, li, t, needMove) {
     ghost.remove(); li.classList.remove('dragging'); busyEnd();
     document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target'));
     setTimeout(() => { suppressClick = false; }, 0);
-    if (nestOn) { nestOn.classList.remove('nest-target'); await act('todo_nest', {item: String(t.id), under_item: nestOn.dataset.id}, 'Making it a sub-item'); return; }
+    if (nestOn) { nestOn.classList.remove('nest-target'); await dropAsStep(t, nestOn.dataset.id); return; }
     if (!li.parentElement || !li.parentElement.dataset.status) { await refresh(true); return; }   // never left its parent card
     const to = li.parentElement.dataset.status;
     const sibs = [...li.parentElement.querySelectorAll(':scope > .kcard')], i = sibs.indexOf(li);
@@ -979,7 +985,7 @@ function startDrag(e, li, t) {
     li.classList.remove('dragging');
     let n = li.nextElementSibling; while (n && !n.classList.contains('item')) n = n.nextElementSibling;
     busyEnd();
-    if (nestOn) { nestOn.classList.remove('nest-target'); await act('todo_nest', {item: String(t.id), under_item: nestOn.dataset.id}, 'Making it a sub-item'); return; }
+    if (nestOn) { nestOn.classList.remove('nest-target'); await dropAsStep(t, nestOn.dataset.id); return; }
     if (!moved) return;
     if (t.parent_id) { busyStart(); try { await call('todo_unnest', {item: String(t.id)}); } catch (e) { showError(e, 'Taking it out'); } finally { busyEnd(); } }
     if (n) await act('todo_move', {item: String(t.id), before_item: n.dataset.id}, 'Moving');
