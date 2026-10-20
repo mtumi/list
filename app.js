@@ -483,14 +483,20 @@ function openDetail(t) {
   const ti = document.createElement('textarea'); ti.className = 'dtitle'; ti.rows = 1; ti.value = t.title || ''; ti.setAttribute('aria-label', 'Title');
   const fit = () => { ti.style.height = 'auto'; ti.style.height = ti.scrollHeight + 'px'; };
   ti.addEventListener('input', () => { if (ti.value.includes('\n')) ti.value = ti.value.replace(/\n+/g, ' '); fit(); }); body.append(ti); setTimeout(fit, 0);
-  // Return saves the title at once (no new line); Escape puts it back.
-  ti.addEventListener('keydown', async e => {
+  // Return or clicking out saves the title at once (no new line); Escape puts it back.
+  let savingTitle = false;
+  const commitTitle = async () => {
+    const v = ti.value.trim();
+    if (savingTitle || !v || v === t.title) return;
+    savingTitle = true;
+    await act('todo_edit', {item: String(t.id), title: v}, 'Renaming', () => { t.title = v; });
+    savingTitle = false;
+  };
+  ti.addEventListener('keydown', e => {
     if (e.key === 'Escape') { e.stopPropagation(); ti.value = t.title || ''; fit(); ti.blur(); return; }
-    if (e.key !== 'Enter') return;
-    e.preventDefault(); const v = ti.value.trim();
-    if (v && v !== t.title) { ti.blur(); await act('todo_edit', {item: String(t.id), title: v}, 'Renaming', () => { t.title = v; }); const n = itemById(t.id); if (n) openDetail(n); }
-    else ti.blur();
+    if (e.key === 'Enter') { e.preventDefault(); ti.blur(); }
   });
+  ti.addEventListener('blur', commitTitle);
   if (t.done_check) { const dc = el('p', 'ddone'); dc.append(el('b', null, 'Done when: '), linkified(clean(t.done_check))); body.append(dc); }
   if (t.waiting_on) {
     const wt = el('p', 'dwait' + (t.waiting ? ' on' : ''));
