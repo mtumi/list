@@ -465,7 +465,7 @@ form.add button,.spbody button.primary,.card form button,#deniedout{font:600 .7r
 :root[data-look="notebook"] .col{background:transparent;border:0;box-shadow:none;padding:4px 2px 8px}
 :root[data-look="notebook"] .col h2,:root[data-look="notebook"] .col h3{color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
 :root[data-look="notebook"] .kcard{background-color:var(--raised);border:0;border-left:0;border-radius:2px;box-shadow:var(--shadow);
-  background-image:repeating-linear-gradient(transparent 0, transparent 21px, #DCE4EC 21px, #DCE4EC 22px);background-position:0 7px}
+  background-image:repeating-linear-gradient(transparent 0, transparent 21px, rgba(43,76,126,.055) 21px, rgba(43,76,126,.055) 22px);background-position:0 7px}
 :root[data-look="notebook"] .kcard[data-s="doing"]{box-shadow:var(--shadow)}
 :root[data-look="notebook"] .kcard[data-s="done"]{opacity:.6}
 :root[data-look="notebook"] .item{border-bottom:1px dashed var(--line-soft);border-radius:0}
