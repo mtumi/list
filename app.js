@@ -922,8 +922,10 @@ function startCardDrag(e, li, t, needMove) {
     let nest = null;
     if (tc && tc !== li && !li.contains(tc)) {
       const r = tc.getBoundingClientRect(), f = (ev.clientY - r.top) / r.height, tid = Number(tc.dataset.id);
-      // A finished card never takes steps: dropping on one in Done just moves the card to Done.
-      if (f > 0.25 && f < 0.75 && tid !== t.id && !isUnder(tid, t.id) && tc.dataset.s !== 'done') nest = tc;
+      // Only a card in the column the drag started from takes steps, and never in Done (Michael, 2026-10-20);
+      // dropping on a card in another column just moves it there.
+      const sameCol = tc.parentElement.dataset.status === t.status && t.status !== 'done';
+      if (f > 0.25 && f < 0.75 && tid !== t.id && !isUnder(tid, t.id) && sameCol) nest = tc;
     }
     if (nest !== nestOn) { if (nestOn) nestOn.classList.remove('nest-target'); nestOn = nest; if (nest) nest.classList.add('nest-target'); }
     if (nest) { document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target')); return; }
