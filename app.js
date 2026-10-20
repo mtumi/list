@@ -458,8 +458,9 @@ function renderBoard(main) {
 // Details for one item, opened by tapping a board card. Status changes only from these buttons or a drag.
 function linkified(text) {
   const frag = document.createDocumentFragment();
-  String(text || '').split(/(https?:\/\/[^\s)]+)/g).forEach((part, i) => {
-    if (i % 2) { const a = document.createElement('a'); a.href = part.replace(/[.,;]+$/, ''); a.target = '_blank'; a.rel = 'noopener'; a.textContent = part.includes('docs.google.com/spreadsheets') ? 'Open the song list' : part.replace(/^https?:\/\//, '').slice(0, 60); frag.append(a); }
+  String(text || '').split(/((?:https?|readdle-spark):\/\/[^\s)]+)/g).forEach((part, i) => {
+    if (i % 2) { const a = document.createElement('a'); a.href = part.replace(/[.,;]+$/, ''); a.target = '_blank'; a.rel = 'noopener'; a.textContent = part.includes('docs.google.com/spreadsheets') ? 'Open the song list' : part.startsWith('readdle-spark:') ? 'Open the email in Spark' : part.replace(/^https?:\/\//, '').slice(0, 60);
+      if (part.startsWith('readdle-spark:')) a.removeAttribute('target'); frag.append(a); }
     else if (part) frag.append(document.createTextNode(part));
   });
   return frag;
