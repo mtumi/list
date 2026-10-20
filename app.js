@@ -922,7 +922,8 @@ function startCardDrag(e, li, t, needMove) {
     let nest = null;
     if (tc && tc !== li && !li.contains(tc)) {
       const r = tc.getBoundingClientRect(), f = (ev.clientY - r.top) / r.height, tid = Number(tc.dataset.id);
-      if (f > 0.25 && f < 0.75 && tid !== t.id && !isUnder(tid, t.id)) nest = tc;
+      // A finished card never takes steps: dropping on one in Done just moves the card to Done.
+      if (f > 0.25 && f < 0.75 && tid !== t.id && !isUnder(tid, t.id) && tc.dataset.s !== 'done') nest = tc;
     }
     if (nest !== nestOn) { if (nestOn) nestOn.classList.remove('nest-target'); nestOn = nest; if (nest) nest.classList.add('nest-target'); }
     if (nest) { document.querySelectorAll('.kanban .col.target').forEach(c => c.classList.remove('target')); return; }
@@ -987,7 +988,7 @@ function startDrag(e, li, t) {
     if (!target || target === li) { setNest(null); return; }
     const r = target.getBoundingClientRect(), f = (ev.clientY - r.top) / r.height, tid = Number(target.dataset.id);
     // The middle of another row nests under it; the top or bottom edge places before or after it.
-    if (f > 0.3 && f < 0.7 && tid !== t.id && !isUnder(tid, t.id)) { setNest(target); return; }
+    if (f > 0.3 && f < 0.7 && tid !== t.id && !isUnder(tid, t.id) && target.dataset.s !== 'done') { setNest(target); return; }
     setNest(null);
     if (target.parentElement !== ul) return;
     moved = true;
