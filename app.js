@@ -441,6 +441,8 @@ function renderBoard(main) {
       older = list.length - recent.length;
       if (!showOlderDone) list = recent;
     }
+    // Daily items sit at the top of every column (Michael, 2026-10-20).
+    list = [...list.filter(t => t.schedule === 'daily'), ...list.filter(t => t.schedule !== 'daily')];
     const col = el('section', 'col'); col.dataset.status = s;
     const h = el('h2'); h.append(el('span', 'mark'), el('span', null, name), el('span', 'n', String(list.length))); col.append(h);
     const ul = el('ul', 'cards'); ul.dataset.status = s;
