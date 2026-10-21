@@ -1,6 +1,6 @@
 // Keeps the page's own files so the installed app opens quickly. Network first, so a new version shows
 // on the next open; the cache is only a fallback. Requests to Supabase are never touched or stored.
-const CACHE = 'list-shell-v37';
+const CACHE = 'list-shell-v38';
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'look.js', 'config.js', 'vendor/supabase-js-2.49.4.js',
   'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

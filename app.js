@@ -164,7 +164,10 @@ async function act(fn, args, context, optimistic) {
     const r = await call(fn, args);
     if (r && r.ok === false) {
       toast(r.message + (r.candidates ? ' ' + r.candidates.map(c => `${c.id}: ${clean(c.title).slice(0,40)}`).join('; ') : ''));
-    } else if (r && r.message && !/^(Moved|Changed|Marked)/.test(r.message)) toast(r.message);
+    } else if (r && r.message && !/^(Moved|Changed|Marked)/.test(r.message)) {
+      // Delete is stored as dropped (kept, recoverable), but in the app it reads as a delete (Michael, 2026-10-21).
+      toast(r.message.replace(/^Taken off the list: /, 'Deleted: '));
+    }
     return r;
   } catch (e) { showError(e, context); }
   finally { busyEnd(); await refresh(true); }
@@ -273,7 +276,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.hmenuwrap')) {
 async function dropAsStep(t, targetId) {
   if (String(t.id) === String(targetId)) return;
   const r = await act('todo_step_add', {item: String(targetId), step: clean(t.title)}, 'Adding it as a step');
-  if (r && r.ok !== false) await act('todo_remove', {item: String(t.id)}, 'Removing the card');
+  if (r && r.ok !== false) { try { await call('todo_remove', {item: String(t.id)}); } catch (e) { showError(e, 'Removing the card'); } await refresh(true); }
 }
 function itemRow(t, depth = 0) {
   shownIds.push(t.id);
