@@ -129,8 +129,19 @@ async function refresh(listToo = true) {
   try {
     if (listToo) { data = await call('todo_list', {area: null, include_done: true}); fetchedAt = Date.now(); }
     if (view.mode === 'time') timeData = await call('todo_time_view');
-    banner(null); render();
+    banner(null); render(); if (listToo) refreshDetail();
   } catch (e) { showError(e, 'Loading the list'); }
+}
+// An open details panel follows changes made elsewhere (voice, another device), the same way the list does,
+// unless Michael is in the middle of typing in it; then it catches up after his next save or when he reopens it.
+let openSnap = null, panelDirty = false;
+function refreshDetail() {
+  if (openId == null || $('itempanel').hidden) return;
+  const n = itemById(openId);
+  if (!n || JSON.stringify(n) === openSnap || panelDirty) return;
+  const a = document.activeElement;
+  if (a && $('itempanel').contains(a) && a.matches('input, textarea, select, [contenteditable]')) return;
+  const top = $('itempanel').scrollTop; openDetail(n); $('itempanel').scrollTop = top;
 }
 async function poll(force = false) {
   if (!started || isBusy()) return;
@@ -158,7 +169,7 @@ async function listen() {
 
 // ---------- writing
 async function act(fn, args, context, optimistic) {
-  busyStart();
+  busyStart(); panelDirty = false;
   try {
     if (optimistic) { optimistic(); render(); }
     const r = await call(fn, args);
@@ -475,7 +486,7 @@ let openId = null, shownIds = [];
 function itemById(id) { for (const a of (data && data.areas) || []) for (const x of a.items) if (x.id === id) return x; return null; }
 function step(dir) { const i = shownIds.indexOf(openId); const n = itemById(shownIds[i + dir]); if (n) openDetail(n); }
 function openDetail(t) {
-  openId = t.id;
+  openId = t.id; openSnap = JSON.stringify(t); panelDirty = false;
   const p = $('itempanel'), body = $('itembody'); body.textContent = '';
   const short = g => clean(g || '').replace(/\s*\(.*$/, '');
   $('itemmeta').replaceChildren(...(t.code ? [codeLabel(t), ' '] : []), [t.area, short(t.group), STATUS_WORD[t.status]].filter(Boolean).join(' · '));
@@ -1041,6 +1052,7 @@ $('emailform').addEventListener('submit', e => { e.preventDefault(); passwordSig
 $('changepw').onclick = () => { $('newpw').value = ''; $('newpw2').value = ''; $('pwstatus').textContent = ''; $('pwdialog').showModal(); setTimeout(() => $('newpw').focus(), 50); };
 $('pwcancel').onclick = () => $('pwdialog').close();
 $('itemclose').onclick = closeDetail;
+$('itempanel').addEventListener('input', () => { panelDirty = true; });
 $('itemprev').onclick = () => step(-1); $('itemnext').onclick = () => step(1);
 document.addEventListener('keydown', e => {
   if ($('itempanel').hidden) return;
