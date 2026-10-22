@@ -6,6 +6,7 @@
 // slow poll as a safety net (a fast one when Realtime is not connected).
 'use strict';
 
+let DEMO = false; try { DEMO = localStorage.getItem('list-demo') === '1'; } catch (e) { /* private mode */ }
 const CFG = window.LIST_CONFIG || {};
 const AREA_COLOR = {'Job search':'--a1','Music':'--a2',"Will's recruiting":'--a3','Will':'--a3','Health':'--a4','AI/System':'--a5','System':'--a5','Home':'--a6','Other':'--a0'};
 const POLL_FAST = 4000, POLL_SLOW = 30000;
@@ -83,8 +84,9 @@ function showStep() { $('step-email').hidden = false; }
 
 // ---------- talking to Supabase
 async function call(fn, args = {}, retried = false) {
-  if (window.DEMO && DEMO.on) { const r = await DEMO.call(fn, args); lastOk = Date.now(); setSync(); return r; }   // demo.js: nothing real is read or written
-  const {data: r, error, status} = await sb.rpc(fn, args);
+  // Demo mode reads and writes the fictional list in schema demo, through the todo_api.demo_* functions
+  // (migration 030); voice uses the same list while Michael has demo mode on there.
+  const {data: r, error, status} = await sb.rpc(DEMO && fn !== 'access' ? 'demo_' + fn : fn, args);
   if (error) {
     const e = {code: error.code, status, message: error.message || 'Supabase refused that'};
     if (!retried && (error.code === 'PGRST301' || error.code === 'PGRST303' || /jwt expired/i.test(error.message || ''))) {
@@ -163,7 +165,7 @@ function onSignal() { clearTimeout(signalTimer); signalTimer = setTimeout(() => 
 async function listen() {
   if (channel) { await sb.removeChannel(channel); channel = null; }
   try { await sb.realtime.setAuth(session && session.access_token); } catch (e) { /* the poll covers it */ }
-  channel = sb.channel('todo-list', {config: {private: true}})
+  channel = sb.channel(DEMO ? 'todo-demo' : 'todo-list', {config: {private: true}})
     .on('broadcast', {event: 'changed'}, onSignal)
     .subscribe(status => { live = status === 'SUBSCRIBED'; setSync(); if (live) poll(true); });
 }
@@ -283,12 +285,14 @@ function renderStrip() {
   box.append(more);
 }
 // Demo mode: a fictional list, for showing the app without personal information (Michael, 2026-10-22).
+// The switch is remembered per browser; the list itself lives in the database, so voice can work it too.
 function showDemo() {
-  const on = !!(window.DEMO && DEMO.on);
-  $('demobtn').textContent = on ? 'Demo on: turn off' : 'Demo mode';
-  $('demotag').hidden = !on; document.body.classList.toggle('demo', on);
+  $('demobtn').textContent = DEMO ? 'Demo on: turn off' : 'Demo mode';
+  $('demoreset').hidden = !DEMO;
+  $('demotag').hidden = !DEMO; document.body.classList.toggle('demo', DEMO);
 }
-$('demobtn').onclick = () => { DEMO.set(!DEMO.on); location.reload(); };
+$('demobtn').onclick = () => { try { localStorage.setItem('list-demo', DEMO ? '0' : '1'); } catch (e) { /* private mode */ } location.reload(); };
+$('demoreset').onclick = () => act('todo_demo_reset', {}, 'Resetting the demo list');
 showDemo();
 $('menubtn').onclick = e => { e.stopPropagation(); const m = $('hmenu'); m.hidden = !m.hidden; $('menubtn').setAttribute('aria-expanded', String(!m.hidden)); };
 document.addEventListener('click', e => { if (!e.target.closest('.hmenuwrap')) { $('hmenu').hidden = true; $('menubtn').setAttribute('aria-expanded', 'false'); } });
