@@ -83,6 +83,7 @@ function showStep() { $('step-email').hidden = false; }
 
 // ---------- talking to Supabase
 async function call(fn, args = {}, retried = false) {
+  if (window.DEMO && DEMO.on) { const r = await DEMO.call(fn, args); lastOk = Date.now(); setSync(); return r; }   // demo.js: nothing real is read or written
   const {data: r, error, status} = await sb.rpc(fn, args);
   if (error) {
     const e = {code: error.code, status, message: error.message || 'Supabase refused that'};
@@ -281,6 +282,14 @@ function renderStrip() {
   more.onclick = () => { showMore = !showMore; try { localStorage.setItem('list-more', showMore ? '1' : '0'); } catch (e) { /* private mode */ } render(); };
   box.append(more);
 }
+// Demo mode: a fictional list, for showing the app without personal information (Michael, 2026-10-22).
+function showDemo() {
+  const on = !!(window.DEMO && DEMO.on);
+  $('demobtn').textContent = on ? 'Demo on: turn off' : 'Demo mode';
+  $('demotag').hidden = !on; document.body.classList.toggle('demo', on);
+}
+$('demobtn').onclick = () => { DEMO.set(!DEMO.on); location.reload(); };
+showDemo();
 $('menubtn').onclick = e => { e.stopPropagation(); const m = $('hmenu'); m.hidden = !m.hidden; $('menubtn').setAttribute('aria-expanded', String(!m.hidden)); };
 document.addEventListener('click', e => { if (!e.target.closest('.hmenuwrap')) { $('hmenu').hidden = true; $('menubtn').setAttribute('aria-expanded', 'false'); } });
 // Dropping a card onto another turns it into a step of that card (Michael, 2026-10-20: "make drops create steps").
